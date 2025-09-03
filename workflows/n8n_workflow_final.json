@@ -1,0 +1,293 @@
+{
+  "name": "AI新闻分析工作流 - 最终优化版",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## AI新闻分析工作流 - 最终优化版\n✅ 修复邮件格式化问题\n✅ 修复PostgreSQL ID重复问题\n✅ 使用UPSERT避免重复插入\n✅ HTML格式邮件内容",
+        "height": 180,
+        "width": 250
+      },
+      "id": "d0aee33f-27a8-4f36-be23-ad4c31966163",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [144, -128]
+    },
+    {
+      "parameters": {
+        "path": "news-analysis-webhook",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [192, 192],
+      "id": "1935d7b7-2009-48d0-ac2d-939d2af6bec3",
+      "name": "Webhook",
+      "webhookId": "23136ca0-f84a-44f9-9113-088edc6643cf"
+    },
+    {
+      "parameters": {
+        "url": "https://feeds.bloomberg.com/markets/news.rss",
+        "options": {
+          "ignoreSSL": true
+        }
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [416, 192],
+      "id": "4d5b320a-0851-4661-8d2f-d5013d68e876",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "jsCode": "// RSS Read输出数据预处理 - 修正变量命名和数据保留\nconst items = $input.all();\nconst limitedItems = items.slice(0, 2);\n\n// 处理RSS数据，确保所有原始数据都被保留\nconst processedItems = limitedItems.map(item => {\n  const data = item.json;\n  \n  // 构建Agent期望的chatInput格式\n  const chatInput = {\n    title: data.title || '未知标题',\n    content: data.content || data.description || data.summary || '',\n    link: data.link || data.url || '',\n    pubDate: data.pubDate || data.isoDate || new Date().toISOString(),\n    author: data.author || data.creator || '未知作者',\n    categories: data.categories || [],\n    // 组合完整的新闻文本供AI分析\n    fullText: `标题: ${data.title || ''}\\n\\n内容: ${data.content || data.description || data.summary || ''}\\n\\n链接: ${data.link || ''}\\n\\n发布时间: ${data.pubDate || data.isoDate || ''}`\n  };\n\n  return {\n    json: {\n      // AI Agent需要的输入\n      chatInput: chatInput.fullText,\n      // 保留完整的新闻数据供后续节点使用\n      newsData: chatInput,\n      originalRssData: data,\n      // 生成唯一的会话ID\n      sessionId: `news_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,\n      // 直接传递标题和URL，确保后续节点能获取到\n      newsTitle: data.title || '未知标题',\n      newsUrl: data.link || data.url || '',\n      newsAuthor: data.author || data.creator || '未知作者',\n      newsPubDate: data.pubDate || data.isoDate || null\n    }\n  };\n});\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 192],
+      "id": "17f5859e-d429-483e-857a-f068a43f8f74",
+      "name": "RSS数据预处理"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=请分析以下新闻内容：{{ $json.chatInput }}\n\n请务必通过HTTP API工具验证股票信息并输出JSON分析结果。",
+        "options": {
+          "systemMessage": "你是一个专业的中国股市新闻分析师。请用中文分析新闻内容，每条新闻限制分析3只股票。\n\n🎯 工作流程\n- 使用HTTP API工具查询股票信息\n- API格式：http://35.77.54.203:3003/stocks/{stock_code}?refresh=false\n- 输出JSON格式的分析结果\n\n📋 输出格式：\n```json\n{\n  \"news_source\": {\n    \"original_title\": \"原始标题\",\n    \"original_url\": \"原始链接\",\n    \"analysis_timestamp\": \"分析时间\"\n  },\n  \"news_analysis\": {\n    \"core_event\": \"核心事件描述\",\n    \"impact_direction\": \"正面/负面/中性\",\n    \"affected_industries\": [\"相关行业\"],\n    \"impact_magnitude\": \"高/中/低\"\n  },\n  \"stock_recommendations\": [\n    {\n      \"stock_code\": \"股票代码\",\n      \"stock_name\": \"股票名称\",\n      \"current_price\": 价格,\n      \"recommendation\": \"买入/持有/卖出\",\n      \"target_price\": \"目标价格\",\n      \"key_rationale\": \"推荐理由\",\n      \"risk_factors\": [\"风险因素\"],\n      \"api_data_verified\": true\n    }\n  ],\n  \"execution_summary\": {\n    \"api_calls_made\": 3,\n    \"stocks_analyzed\": [\"股票代码列表\"],\n    \"confidence_level\": \"高/中/低\"\n  }\n}\n```"
+        }
+      },
+      "id": "419dc1b2-0573-4061-9bab-650d518c6509",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [928, 192]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [864, 416],
+      "id": "c238ee03-f4f1-4ed2-b8d6-319c7357615b",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "5rbbyNDHSy4NIQw4",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('URL', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [1120, 416],
+      "id": "d768d420-e5f4-4314-99f5-97bcc99ad93d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agent输出处理 - 确保数据完整传递\nconst items = $input.all();\n\n// 处理每个Agent的输出\nconst processedItems = items.map(item => {\n  const agentOutput = item.json.output || item.json.response || item.json;\n  const inputData = item.json; // 保留输入数据\n  \n  let analysisData = {};\n  \n  try {\n    // 解析Agent输出的JSON\n    if (typeof agentOutput === 'string') {\n      const jsonMatch = agentOutput.match(/```json\\s*([\\s\\S]*?)\\s*```/);\n      if (jsonMatch) {\n        analysisData = JSON.parse(jsonMatch[1]);\n      } else {\n        analysisData = JSON.parse(agentOutput);\n      }\n    } else if (typeof agentOutput === 'object') {\n      analysisData = agentOutput;\n    }\n  } catch (error) {\n    console.log('解析Agent输出失败:', error.message);\n    analysisData = {\n      news_source: {\n        original_title: inputData.newsTitle || '解析错误',\n        original_url: inputData.newsUrl || '',\n        analysis_timestamp: new Date().toISOString()\n      },\n      news_analysis: {\n        core_event: '分析过程中出现错误',\n        impact_direction: '未知',\n        affected_industries: ['解析错误']\n      },\n      stock_recommendations: [],\n      error_message: error.message\n    };\n  }\n  \n  // 确保新闻源信息完整\n  if (!analysisData.news_source) {\n    analysisData.news_source = {};\n  }\n  analysisData.news_source.original_title = analysisData.news_source.original_title || inputData.newsTitle || '未知新闻';\n  analysisData.news_source.original_url = analysisData.news_source.original_url || inputData.newsUrl || '';\n  \n  return {\n    json: {\n      // 保留所有输入数据\n      newsTitle: inputData.newsTitle,\n      newsUrl: inputData.newsUrl,\n      newsAuthor: inputData.newsAuthor,\n      newsPubDate: inputData.newsPubDate,\n      newsData: inputData.newsData,\n      originalRssData: inputData.originalRssData,\n      \n      // Agent分析结果\n      originalAnalysis: analysisData,\n      analysisJson: JSON.stringify(analysisData, null, 2),\n      \n      // 处理状态\n      success: true,\n      processedAt: new Date().toISOString()\n    }\n  };\n});\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1328, 192],
+      "id": "0b473ac2-666a-44fe-b042-b9ad71a27c76",
+      "name": "Agent输出处理"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PostgreSQL数据映射和邮件内容生成 - HTML格式\nconst items = $input.all();\n\n// 生成HTML格式的详细邮件内容\nconst generateDetailedEmailContent = (analysis, title, url, author, pubDate) => {\n  let html = `<html><body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">`;\n  \n  // 标题\n  html += `<h2 style=\"color: #2c5aa0; border-bottom: 2px solid #2c5aa0; padding-bottom: 10px;\">📊 AI股票投资分析报告</h2>`;\n  \n  // 新闻基本信息\n  html += `<div style=\"background-color: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;\">`;\n  html += `<h3 style=\"color: #007bff; margin-top: 0;\">📰 新闻信息</h3>`;\n  html += `<p><strong>标题：</strong>${title}</p>`;\n  html += `<p><strong>作者：</strong>${author}</p>`;\n  html += `<p><strong>发布时间：</strong>${pubDate ? new Date(pubDate).toLocaleString('zh-CN') : '未知'}</p>`;\n  if (url) {\n    html += `<p><strong>链接：</strong><a href=\"${url}\" target=\"_blank\">${url}</a></p>`;\n  }\n  html += `</div>`;\n  \n  // 如果有分析数据\n  if (analysis && Object.keys(analysis).length > 0) {\n    // 核心分析\n    if (analysis.news_analysis) {\n      const newsAnalysis = analysis.news_analysis;\n      html += `<div style=\"background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;\">`;\n      html += `<h3 style=\"color: #856404; margin-top: 0;\">🎯 核心分析</h3>`;\n      html += `<p><strong>核心事件：</strong>${newsAnalysis.core_event || '未识别'}</p>`;\n      html += `<p><strong>影响方向：</strong><span style=\"color: ${newsAnalysis.impact_direction === '正面' ? 'green' : newsAnalysis.impact_direction === '负面' ? 'red' : 'orange'}; font-weight: bold;\">${newsAnalysis.impact_direction || '中性'}</span></p>`;\n      html += `<p><strong>影响程度：</strong>${newsAnalysis.impact_magnitude || '中等'}</p>`;\n      if (newsAnalysis.affected_industries && newsAnalysis.affected_industries.length > 0) {\n        html += `<p><strong>涉及行业：</strong>${newsAnalysis.affected_industries.join('、')}</p>`;\n      }\n      html += `</div>`;\n    }\n    \n    // 股票推荐详情\n    if (analysis.stock_recommendations && analysis.stock_recommendations.length > 0) {\n      html += `<div style=\"background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0;\">`;\n      html += `<h3 style=\"color: #155724; margin-top: 0;\">📈 股票推荐详情 (${analysis.stock_recommendations.length}只)</h3>`;\n      \n      analysis.stock_recommendations.forEach((stock, index) => {\n        html += `<div style=\"background: white; padding: 15px; margin: 10px 0; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);\">`;\n        html += `<h4 style=\"color: #2c5aa0; margin-top: 0;\">${index + 1}. 【${stock.stock_code}】${stock.stock_name || '未知股票'}</h4>`;\n        html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n        html += `<tr><td style=\"padding: 5px; border-bottom: 1px solid #eee;\"><strong>💰 当前价格：</strong></td><td style=\"padding: 5px; border-bottom: 1px solid #eee;\">¥${stock.current_price || 'N/A'}</td></tr>`;\n        html += `<tr><td style=\"padding: 5px; border-bottom: 1px solid #eee;\"><strong>📊 推荐评级：</strong></td><td style=\"padding: 5px; border-bottom: 1px solid #eee; font-weight: bold; color: ${stock.recommendation === '买入' || stock.recommendation === '强烈买入' ? 'green' : stock.recommendation === '卖出' || stock.recommendation === '减持' ? 'red' : 'orange'};\">${stock.recommendation || 'N/A'}</td></tr>`;\n        if (stock.target_price) {\n          html += `<tr><td style=\"padding: 5px; border-bottom: 1px solid #eee;\"><strong>🎯 目标价位：</strong></td><td style=\"padding: 5px; border-bottom: 1px solid #eee;\">${stock.target_price}</td></tr>`;\n        }\n        if (stock.four_dimensional_score) {\n          html += `<tr><td style=\"padding: 5px; border-bottom: 1px solid #eee;\"><strong>⭐ 综合评分：</strong></td><td style=\"padding: 5px; border-bottom: 1px solid #eee; font-weight: bold;\">${stock.four_dimensional_score}/10</td></tr>`;\n        }\n        html += `</table>`;\n        if (stock.key_rationale) {\n          html += `<p style=\"background: #f8f9fa; padding: 10px; border-radius: 3px; margin: 10px 0;\"><strong>📝 推荐理由：</strong><br>${stock.key_rationale}</p>`;\n        }\n        if (stock.risk_factors && stock.risk_factors.length > 0) {\n          html += `<p style=\"background: #fff3cd; padding: 10px; border-radius: 3px; margin: 10px 0; border-left: 3px solid #ffc107;\"><strong>⚠️ 风险提示：</strong><br>${stock.risk_factors.join('、')}</p>`;\n        }\n        if (stock.api_data_verified) {\n          html += `<p style=\"color: green; font-size: 12px;\">✅ API数据已验证</p>`;\n        }\n        html += `</div>`;\n      });\n      html += `</div>`;\n    }\n    \n    // 执行摘要\n    if (analysis.execution_summary) {\n      const execSummary = analysis.execution_summary;\n      html += `<div style=\"background-color: #e2e3e5; padding: 15px; border-left: 4px solid #6c757d; margin: 20px 0;\">`;\n      html += `<h3 style=\"color: #495057; margin-top: 0;\">📋 执行摘要</h3>`;\n      html += `<p><strong>API调用次数：</strong>${execSummary.api_calls_made || 0}次</p>`;\n      if (execSummary.stocks_analyzed && execSummary.stocks_analyzed.length > 0) {\n        html += `<p><strong>分析股票代码：</strong>${execSummary.stocks_analyzed.join('、')}</p>`;\n      }\n      html += `<p><strong>分析置信度：</strong><span style=\"font-weight: bold; color: ${execSummary.confidence_level === '高' ? 'green' : execSummary.confidence_level === '低' ? 'red' : 'orange'};\">${execSummary.confidence_level || '中等'}</span></p>`;\n      if (execSummary.error_message) {\n        html += `<p style=\"color: red;\"><strong>错误信息：</strong>${execSummary.error_message}</p>`;\n      }\n      html += `</div>`;\n    }\n  } else {\n    html += `<div style=\"background-color: #f8d7da; padding: 15px; border-left: 4px solid #dc3545; margin: 20px 0;\">`;\n    html += `<p style=\"color: #721c24; font-weight: bold;\">❌ AI分析过程中出现问题，未能生成有效的投资建议。</p>`;\n    html += `</div>`;\n  }\n  \n  // 免责声明\n  html += `<div style=\"background-color: #f8d7da; padding: 15px; border: 2px solid #dc3545; border-radius: 5px; margin: 20px 0;\">`;\n  html += `<h3 style=\"color: #721c24; margin-top: 0;\">⚠️ 风险提示</h3>`;\n  html += `<p style=\"color: #721c24;\">本分析报告由AI算法生成，仅供参考，不构成投资建议。<br>`;\n  html += `股市有风险，投资需谨慎。请根据个人风险承受能力做出投资决策。<br>`;\n  html += `建议结合多方面信息和专业人士意见后再做决定。</p>`;\n  html += `</div>`;\n  \n  // 报告信息\n  html += `<div style=\"background-color: #d1ecf1; padding: 15px; border-left: 4px solid #17a2b8; margin: 20px 0;\">`;\n  html += `<h3 style=\"color: #0c5460; margin-top: 0;\">📊 报告信息</h3>`;\n  html += `<p><strong>生成时间：</strong>${new Date().toLocaleString('zh-CN')}</p>`;\n  html += `<p><strong>数据来源：</strong>Bloomberg RSS + 实时股票API</p>`;\n  html += `<p><strong>分析引擎：</strong>Claude 4 Sonnet AI</p>`;\n  html += `</div>`;\n  \n  html += `</body></html>`;\n  return html;\n};\n\nconst processedItems = items.map(item => {\n  const data = item.json;\n  const analysis = data.originalAnalysis || {};\n  \n  // 优先从多个数据源获取新闻信息\n  const newsTitle = data.newsTitle || \n                   data.newsData?.title || \n                   analysis.news_source?.original_title ||\n                   '未知新闻标题';\n  \n  const newsUrl = data.newsUrl || \n                 data.newsData?.link || \n                 analysis.news_source?.original_url ||\n                 '';\n  \n  const newsAuthor = data.newsAuthor || \n                    data.newsData?.author ||\n                    '未知作者';\n  \n  const pubDate = data.newsPubDate || \n                 data.newsData?.pubDate;\n  \n  // 生成基于实际标题的content_hash\n  const generateContentHash = (title) => {\n    const cleanTitle = title.replace(/[^a-zA-Z0-9\\u4e00-\\u9fa5]/g, '_').substring(0, 20);\n    const timestamp = Date.now();\n    const random = Math.random().toString(36).substring(2, 6);\n    return `${cleanTitle}_${timestamp}_${random}`;\n  };\n  \n  // 提取域名\n  const extractDomain = (url) => {\n    if (!url) return null;\n    try {\n      return new URL(url).hostname;\n    } catch {\n      return 'unknown';\n    }\n  };\n  \n  // 计算分析质量评分\n  const calculateQualityScore = (analysis) => {\n    let score = 3; // 基础分\n    if (analysis.stock_recommendations?.length > 0) score += 3;\n    if (analysis.news_analysis?.core_event) score += 2;\n    if (analysis.news_analysis?.affected_industries?.length > 0) score += 2;\n    return Math.min(score, 10);\n  };\n  \n  console.log('处理的标题:', newsTitle);\n  console.log('处理的URL:', newsUrl);\n  \n  return {\n    json: {\n      // 必填字段\n      content_hash: generateContentHash(newsTitle),\n      title: newsTitle,\n      \n      // 其他字段\n      url: newsUrl || null,\n      author: newsAuthor,\n      news_time: pubDate ? new Date(pubDate).toISOString() : null,\n      generation_time: new Date().toISOString(),\n      domain: extractDomain(newsUrl),\n      analysis_quality_score: calculateQualityScore(analysis),\n      \n      // JSONB字段\n      processing_metadata: {\n        workflow_id: 'news_analysis_v3',\n        processing_time: new Date().toISOString(),\n        original_title: newsTitle,\n        data_source: 'bloomberg_rss'\n      },\n      full_analysis: analysis,\n      \n      // 状态字段\n      publication_status: 'completed',\n      publication_time: new Date().toISOString(),\n      created_at: new Date().toISOString(),\n      updated_at: new Date().toISOString(),\n      \n      // 生成详细的HTML邮件内容\n      emailSubject: `AI股票分析报告 - ${newsTitle}`,\n      emailContent: generateDetailedEmailContent(analysis, newsTitle, newsUrl, newsAuthor, pubDate)\n    }\n  };\n});\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1536, 192],
+      "id": "cfab6eca-68fc-413f-b044-436460554cbc",
+      "name": "PostgreSQL数据映射"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "processed_news",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_hash": "={{ $json.content_hash }}",
+            "title": "={{ $json.title }}",
+            "url": "={{ $json.url }}",
+            "author": "={{ $json.author }}",
+            "news_time": "={{ $json.news_time }}",
+            "generation_time": "={{ $json.generation_time }}",
+            "domain": "={{ $json.domain }}",
+            "analysis_quality_score": "={{ $json.analysis_quality_score }}",
+            "processing_metadata": "={{ $json.processing_metadata }}",
+            "full_analysis": "={{ $json.full_analysis }}",
+            "publication_status": "={{ $json.publication_status }}",
+            "publication_time": "={{ $json.publication_time }}",
+            "created_at": "={{ $json.created_at }}",
+            "updated_at": "={{ $json.updated_at }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1760, 272],
+      "id": "177dda36-afea-4f28-84d6-db9d91d1e72c",
+      "name": "保存到PostgreSQL",
+      "credentials": {
+        "postgres": {
+          "id": "MDw95kKAOhEocU1a",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "wooyoo@gmail.com",
+        "subject": "={{ $json.emailSubject }}",
+        "message": "={{ $json.emailContent }}",
+        "options": {
+          "isBodyHtml": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1760, 112],
+      "id": "62bd6541-7598-439a-849a-9ab4da9dbb71",
+      "name": "Send a message",
+      "webhookId": "2100e9b4-6af3-4dac-8d9d-43f4559d6c2c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "4JbX2lbrKNuXw2VJ",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "RSS数据预处理",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS数据预处理": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Agent输出处理",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent输出处理": {
+      "main": [
+        [
+          {
+            "node": "PostgreSQL数据映射",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PostgreSQL数据映射": {
+      "main": [
+        [
+          {
+            "node": "保存到PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": ["AI分析", "新闻", "股票", "最终优化"]
+}
