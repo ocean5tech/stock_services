@@ -1,7 +1,10 @@
-# 股票服务后端API / Stock Services Backend API
+# 股票分析服务 (Stock Analysis Services)
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+> AI驱动的股票投资分析后端API服务，为n8n工作流提供全面的股票数据分析支持
+
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)](https://fastapi.tiangolo.com/)
+[![AKShare](https://img.shields.io/badge/AKShare-1.17.42-orange.svg)](https://akshare.akfamily.xyz/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Latest-blue.svg)](https://www.postgresql.org/)
 [![n8n](https://img.shields.io/badge/n8n-AI%20Workflow-purple.svg)](https://n8n.io/)
 [![akshare](https://img.shields.io/badge/akshare-1.17.42-red.svg)](https://akshare.akfamily.xyz/)
@@ -34,21 +37,37 @@ This is a comprehensive stock services backend API system based on FastAPI and P
 | 美国股票服务 / US Stocks | 3004 | 美股实时数据 | http://35.77.54.203:3004/docs |
 | 中国期货服务 / Chinese Futures | 3005 | 中国期货实时数据 | http://35.77.54.203:3005/docs |
 
-## 🎯 AI新闻分析工作流 / AI News Analysis Workflow
+## 🎯 n8n工作流集成 / n8n Workflow Integration
 
-### 工作流程
-1. **RSS新闻获取** → Bloomberg金融新闻实时抓取
-2. **AI分析处理** → Claude 4智能投资建议生成  
-3. **股票API验证** → 实时股票数据验证和价格更新
-4. **PostgreSQL存储** → 完整分析结果持久化存储
-5. **HTML邮件发送** → 专业投资分析报告邮件通知
+### 多维度分析工作流
+系统设计了4个核心工作流，提供全面的股票投资分析：
 
-### 分析内容
-- 🎯 **核心事件分析**：识别市场影响因素
-- 📈 **股票推荐**：具体股票投资建议
-- 💰 **价格预测**：目标价格和评级建议
-- ⚠️ **风险评估**：专业风险提示
-- 📊 **执行摘要**：API调用和置信度评估
+1. **主协调工作流 (workflows/main.json)**
+   - 统一股票输入接口
+   - 并行调用3个子分析工作流
+   - 结果整合和报告生成
+
+2. **基本面分析工作流 (workflows/fund.json)**
+   - HTTP请求: `http://35.77.54.203:3003/stocks/{stock_code}/analysis/fundamental`
+   - 获取80+财务指标数据
+   - Claude AI智能基本面分析
+
+3. **技术面分析工作流 (workflows/tech.json)**
+   - HTTP请求: `http://35.77.54.203:3003/stocks/{stock_code}/analysis/technical`
+   - K线数据和技术指标分析
+   - Claude AI智能技术面分析
+
+4. **消息面分析工作流 (workflows/news.json)**
+   - 4个HTTP请求获取不同维度新闻数据
+   - 公司公告、股东变动、龙虎榜、行业新闻
+   - Claude AI智能消息面分析
+
+### AI分析特性
+- 🤖 **Claude 4 Sonnet模型**：专业投资建议生成
+- 📊 **多维度分析**：基本面+技术面+消息面
+- 🎯 **投资建议**：买入/卖出/持有建议
+- 💰 **价格预测**：目标价格和风险评估
+- 📧 **HTML报告**：专业格式邮件通知
 
 ## 💾 数据库配置 / Database Configuration
 
@@ -96,68 +115,153 @@ sudo -u postgres psql < postgresql_setup.sql
 ./setup_production.sh
 ```
 
-### 4. 验证部署
+### 4. 启动股票分析API
 ```bash
-# 检查服务状态
-./monitor.sh
+# 启动中国股票分析服务 (端口3003)
+cd /home/ubuntu/stock_services
+python3 -m uvicorn api.stock_analysis_api:app --host 0.0.0.0 --port 3003
 
-# 检查API健康
-curl http://35.77.54.203:3003/health
-curl http://35.77.54.203:3004/health  
-curl http://35.77.54.203:3005/health
+# 后台运行
+nohup python3 -m uvicorn api.stock_analysis_api:app --host 0.0.0.0 --port 3003 > logs/stock_api.log 2>&1 &
+```
+
+### 5. 验证API服务
+```bash
+# 检查API健康状态
+curl http://35.77.54.203:3003/
+
+# 测试基本面分析API
+curl "http://35.77.54.203:3003/stocks/000001/analysis/fundamental"
+
+# 测试技术面分析API  
+curl "http://35.77.54.203:3003/stocks/000001/analysis/technical"
+
+# 测试消息面分析API
+curl "http://35.77.54.203:3003/stocks/000001/news/announcements"
 ```
 
 ## 📖 API使用示例 / API Usage Examples
 
-### 中国股票服务
+### 📊 股票分析API端点 (端口3003)
+
+#### 基本面分析
 ```bash
-# 获取平安银行股票信息
-curl "http://35.77.54.203:3003/stocks/000001"
+# 获取平安银行基本面分析
+curl "http://35.77.54.203:3003/stocks/000001/analysis/fundamental"
 
-# 获取股票列表（支持分页）
-curl "http://35.77.54.203:3003/stocks?limit=10&offset=0"
+# 获取招商银行基本面分析  
+curl "http://35.77.54.203:3003/stocks/600036/analysis/fundamental"
 
-# 强制刷新最新数据
-curl "http://35.77.54.203:3003/stocks/000001?refresh=true"
+# 返回数据包含：
+# - 股票基本信息（股票代码、名称、总股本等）
+# - 80+财务指标（营收、净利润、总资产、净资产等）
+# - AI分析所需的结构化数据
 ```
 
-### 美国股票服务
+#### 技术面分析
 ```bash
-# 获取苹果股票信息
-curl "http://35.77.54.203:3004/stocks/AAPL"
+# 获取平安银行技术面分析
+curl "http://35.77.54.203:3003/stocks/000001/analysis/technical"
 
-# 按行业筛选股票
-curl "http://35.77.54.203:3004/stocks?sector=Technology"
+# 获取招商银行技术面分析
+curl "http://35.77.54.203:3003/stocks/600036/analysis/technical"
+
+# 返回数据包含：
+# - K线数据（最近60天日线数据）
+# - 实时行情（最新价、涨跌幅、成交量）
+# - 技术指标（换手率、市盈率、市净率等）
 ```
 
-### 中国期货服务
+#### 消息面分析
 ```bash
-# 获取沪铜期货信息
-curl "http://35.77.54.203:3005/futures/cu2410"
+# 公司公告
+curl "http://35.77.54.203:3003/stocks/000001/news/announcements"
 
-# 搜索相关合约
-curl "http://35.77.54.203:3005/contracts/铜"
+# 股东变动
+curl "http://35.77.54.203:3003/stocks/000001/news/shareholders"
+
+# 龙虎榜数据
+curl "http://35.77.54.203:3003/stocks/000001/news/dragon-tiger"
+
+# 行业新闻
+curl "http://35.77.54.203:3003/stocks/000001/news/industry"
+
+# 注意：消息面API当前为占位符，AKShare相关接口暂不稳定
+```
+
+### 📈 API响应示例
+
+#### 基本面分析响应
+```json
+{
+  "stock_code": "000001",
+  "stock_name": "平安银行",
+  "analysis_type": "fundamental",
+  "data_source": "akshare_comprehensive",
+  "update_time": "2025-09-03T10:30:00",
+  "basic_info": {
+    "股票简称": "平安银行",
+    "总股本": "19405918198",
+    "流通股": "19405918198"
+  },
+  "financial_indicators": [
+    // 80+财务指标数据
+  ],
+  "analysis_data": {
+    "company_overview": {
+      "stock_code": "000001",
+      "stock_name": "平安银行",
+      "total_shares": "19405918198"
+    },
+    "financial_metrics": {
+      "revenue": 176543000000,
+      "net_profit": 37252000000
+    }
+  }
+}
 ```
 
 ## 🤖 n8n工作流配置 / n8n Workflow Setup
 
-### 1. 导入工作流
+### 1. 导入工作流文件
 ```bash
-# 在n8n界面中导入以下文件
-n8n_workflow_final.json
+# 在n8n管理界面中导入以下工作流文件：
+workflows/main.json          # 主协调工作流
+workflows/fund.json          # 基本面分析工作流  
+workflows/tech.json          # 技术面分析工作流
+workflows/news.json          # 消息面分析工作流
 ```
 
-### 2. 配置连接
-- **Anthropic API**: Claude 4 Sonnet模型
-- **PostgreSQL**: 使用newsanalysis数据库
-- **Gmail**: 配置邮件发送账号
-- **HTTP Request**: 验证股票API连接
+### 2. 配置API连接
+确保以下服务正确配置：
 
-### 3. 工作流特性
-- ✅ HTML格式邮件报告
-- ✅ 基于content_hash的去重处理
-- ✅ 并行数据库存储和邮件发送
-- ✅ 完整的错误处理和日志记录
+- **股票API服务**: http://35.77.54.203:3003 (确保API服务运行中)
+- **Anthropic API**: Claude 4 Sonnet模型 (需要有效API密钥)
+- **PostgreSQL**: newsanalysis数据库 (用于存储分析结果)
+- **Gmail SMTP**: 邮件发送配置 (用于HTML报告发送)
+
+### 3. 工作流执行流程
+
+1. **股票代码输入** → 在主工作流中输入股票代码 (如: 000001)
+
+2. **并行数据获取** → 3个子工作流并行执行：
+   - 基本面分析：调用 `/stocks/{code}/analysis/fundamental`
+   - 技术面分析：调用 `/stocks/{code}/analysis/technical`  
+   - 消息面分析：调用 4个消息面API端点
+
+3. **AI智能分析** → Claude 4对获取的数据进行专业投资分析
+
+4. **结果整合** → 生成综合投资建议和风险评估
+
+5. **报告发送** → HTML格式邮件报告自动发送
+
+### 4. 工作流特性
+- ✅ **多维度分析**: 基本面+技术面+消息面
+- ✅ **并行处理**: 3个分析维度同时执行，提升效率
+- ✅ **AI驱动**: Claude 4专业投资建议生成
+- ✅ **数据持久化**: PostgreSQL存储完整分析结果
+- ✅ **邮件通知**: HTML格式专业投资报告
+- ✅ **错误处理**: 完整的异常处理和重试机制
 
 ## 🛠 管理工具 / Management Tools
 

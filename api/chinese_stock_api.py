@@ -38,6 +38,66 @@ app.add_middleware(
 # 初始化akshare服务 / Initialize akshare service
 akshare_service = AkshareService()
 
+# 在应用末尾添加新的API端点
+@app.get("/api/financial-abstract/{stock_code}", summary="获取财务摘要数据")
+async def get_financial_abstract(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取股票财务摘要数据 / Get stock financial abstract data
+    包含营业收入、净利润等关键财务指标的历史数据
+    """
+    try:
+        # 调用akshare获取财务摘要数据
+        financial_data = akshare_service.get_financial_abstract(stock_code)
+        
+        if financial_data is None or len(financial_data) == 0:
+            raise HTTPException(status_code=404, detail=f"Stock {stock_code} financial data not found")
+        
+        # 转换为适合API返回的格式
+        result = {
+            "stock_code": stock_code,
+            "data_source": "akshare_financial_abstract", 
+            "update_time": datetime.now().isoformat(),
+            "financial_indicators": financial_data.to_dict('records')
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting financial abstract for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/stock-info/{stock_code}", summary="获取股票基本信息")
+async def get_stock_info(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取股票基本信息 / Get stock basic information
+    包含股票代码、名称、总股本、流通股本等基本信息
+    """
+    try:
+        # 调用akshare获取股票基本信息
+        stock_info = akshare_service.get_stock_basic_info(stock_code)
+        
+        if stock_info is None:
+            raise HTTPException(status_code=404, detail=f"Stock {stock_code} info not found")
+        
+        result = {
+            "stock_code": stock_code,
+            "data_source": "akshare_individual_info",
+            "update_time": datetime.now().isoformat(),
+            "stock_info": stock_info
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting stock info for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """API请求日志中间件 / API request logging middleware"""

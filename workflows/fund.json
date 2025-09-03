@@ -1,0 +1,216 @@
+{
+  "name": "基本面分析",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 基本面分析模块\n📊 专业股票基本面分析\n🔍 输入：股票代码或公司名\n📈 输出：标准化基本面分析报告\n🎯 用途：分析财报、行业地位、发展前景\n💼 关注：盈利能力、成长性、估值、竞争优势",
+        "height": 180,
+        "width": 280
+      },
+      "id": "212d270c-21e4-4cec-8a57-95ace129ef6e",
+      "name": "说明文档",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "path": "fundamental-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        224
+      ],
+      "id": "8431ea06-5e79-451d-b292-459f86bc6777",
+      "name": "基本面分析触发器",
+      "webhookId": "fundamental-analysis-trigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=请对以下股票进行专业基本面分析：\n\n股票代码：{{ $('参数提取').item.json.stock_code }}\n会话ID：{{ $('参数提取').item.json.session_id }}\n\n基本面数据：{{ JSON.stringify($json) }}\n\n请基于提供的财务数据、行业信息和公司资料进行深度基本面分析，输出标准化的投资分析报告。输出格式是标准的JSON格式，并且基本面数据清晰地写在输出中",
+        "options": {
+          "systemMessage": "🧠 系统角色定义：\n\n你是一位资深的价值投资分析师，拥有15年A股基本面研究经验，专精于上市公司财务分析、行业研究和估值建模。你的分析将作为长期投资决策的重要参考。\n\n📊 核心专业领域：\n1. **财务分析**: 三大财务报表深度解读，盈利能力、偿债能力、运营效率分析\n2. **行业分析**: 行业周期、竞争格局、发展趋势、政策影响\n3. **公司质地**: 商业模式、核心竞争力、管理层评估、公司治理\n4. **估值分析**: PE、PB、PEG、DCF等多维度估值方法\n5. **成长性分析**: 收入增长、市场扩张、创新能力、可持续性\n6. **风险识别**: 经营风险、财务风险、行业风险、系统性风险\n\n🎯 分析框架 (务必按此结构输出)：\n\n## 1. 公司基本情况\n- 主营业务: 核心业务描述和收入结构\n- 行业地位: 市场份额、竞争优势、护城河\n- 商业模式: 盈利模式和价值创造方式\n- 发展阶段: 成长期/成熟期/转型期判断\n\n## 2. 财务状况分析\n- 盈利能力: ROE、ROA、毛利率、净利率趋势\n- 成长能力: 营收增长率、净利润增长率、市场扩张\n- 偿债能力: 资产负债率、流动比率、利息覆盖倍数\n- 运营效率: 存货周转、应收账款周转、资产周转率\n- 现金流: 经营现金流、自由现金流、现金流质量\n\n## 3. 行业环境分析\n- 行业周期: 所处周期阶段和发展趋势\n- 市场空间: 行业规模、增长潜力、天花板\n- 竞争格局: 集中度、主要竞争者、差异化程度\n- 政策环境: 相关政策支持或限制因素\n\n## 4. 核心竞争力评估\n- 技术优势: 研发投入、专利技术、创新能力\n- 品牌价值: 品牌影响力、客户黏性、议价能力\n- 渠道优势: 销售网络、供应链控制、成本优势\n- 管理团队: 管理层背景、治理结构、激励机制\n\n## 5. 估值分析\n- 相对估值: PE、PB、PS相对历史和行业水平\n- 绝对估值: DCF模型的内在价值测算\n- 估值合理性: 当前估值是否合理，上涨下跌空间\n- 安全边际: 相对内在价值的安全边际\n\n## 6. 投资建议\n- 投资评级: 强烈推荐/推荐/中性/减持\n- 目标价位: 基于估值模型的合理价格区间\n- 投资逻辑: 核心投资亮点和催化因素\n- 持有期限: 建议持有时间和关键节点\n\n## 7. 风险提示\n- 主要风险: 经营、财务、行业、政策风险\n- 风险等级: 高/中/低风险评估\n- 风控建议: 具体的风险控制措施\n\n🔍 分析要求：\n\n1. **数据驱动**: 严格基于真实财务数据和行业信息\n2. **逻辑严谨**: 每个判断都有充分的数据支撑\n3. **量化分析**: 提供具体的财务指标和估值数据\n4. **前瞻性**: 结合行业趋势做前瞻性判断\n5. **客观中立**: 既要看到亮点也要识别风险\n\n📋 输出格式要求：\n\n请严格按照JSON格式输出，确保数据结构完整：\n\n```json\n{\n  \"analysis_type\": \"fundamental\",\n  \"stock_info\": {\n    \"code\": \"股票代码\",\n    \"name\": \"公司名称\",\n    \"industry\": \"所属行业\",\n    \"market_cap\": \"市值（亿元）\",\n    \"analysis_date\": \"分析日期\"\n  },\n  \"company_overview\": {\n    \"main_business\": \"主营业务描述\",\n    \"market_position\": \"行业地位描述\",\n    \"business_model\": \"商业模式分析\",\n    \"development_stage\": \"发展阶段判断\",\n    \"competitive_advantages\": [\"核心竞争优势数组\"]\n  },\n  \"financial_analysis\": {\n    \"profitability\": {\n      \"roe\": \"ROE数值和趋势\",\n      \"roa\": \"ROA数值和趋势\",\n      \"gross_margin\": \"毛利率分析\",\n      \"net_margin\": \"净利率分析\",\n      \"profitability_trend\": \"盈利能力趋势评价\"\n    },\n    \"growth_ability\": {\n      \"revenue_growth\": \"营收增长率\",\n      \"profit_growth\": \"净利润增长率\",\n      \"growth_sustainability\": \"成长可持续性评估\",\n      \"growth_drivers\": [\"增长驱动因素数组\"]\n    },\n    \"solvency\": {\n      \"debt_ratio\": \"资产负债率\",\n      \"current_ratio\": \"流动比率\",\n      \"interest_coverage\": \"利息覆盖倍数\",\n      \"debt_risk_level\": \"债务风险等级\"\n    },\n    \"operational_efficiency\": {\n      \"inventory_turnover\": \"存货周转率\",\n      \"receivables_turnover\": \"应收账款周转率\",\n      \"total_asset_turnover\": \"总资产周转率\",\n      \"efficiency_evaluation\": \"运营效率评价\"\n    },\n    \"cash_flow\": {\n      \"operating_cash_flow\": \"经营现金流状况\",\n      \"free_cash_flow\": \"自由现金流分析\",\n      \"cash_flow_quality\": \"现金流质量评估\"\n    }\n  },\n  \"industry_analysis\": {\n    \"industry_cycle\": \"行业周期阶段\",\n    \"market_size\": \"市场规模和增长潜力\",\n    \"competitive_landscape\": \"竞争格局分析\",\n    \"policy_environment\": \"政策环境影响\",\n    \"industry_outlook\": \"行业前景判断\"\n  },\n  \"competitive_strength\": {\n    \"technology_advantage\": \"技术优势评估\",\n    \"brand_value\": \"品牌价值分析\",\n    \"channel_advantage\": \"渠道优势评估\",\n    \"management_quality\": \"管理层评价\",\n    \"overall_competitiveness\": \"综合竞争力评分(1-10)\"\n  },\n  \"valuation_analysis\": {\n    \"relative_valuation\": {\n      \"current_pe\": \"当前PE\",\n      \"historical_pe_range\": \"历史PE区间\",\n      \"industry_pe\": \"行业平均PE\",\n      \"pb_analysis\": \"PB估值分析\",\n      \"ps_analysis\": \"PS估值分析\"\n    },\n    \"absolute_valuation\": {\n      \"dcf_value\": \"DCF内在价值\",\n      \"valuation_method\": \"估值方法说明\",\n      \"key_assumptions\": [\"关键假设条件\"]\n    },\n    \"valuation_conclusion\": \"估值合理性结论\",\n    \"safety_margin\": \"安全边际评估\"\n  },\n  \"investment_recommendation\": {\n    \"rating\": \"强烈推荐/推荐/中性/减持\",\n    \"target_price_range\": \"目标价格区间\",\n    \"upside_potential\": \"上涨空间百分比\",\n    \"investment_logic\": \"核心投资逻辑\",\n    \"key_catalysts\": [\"关键催化因素\"],\n    \"recommended_holding_period\": \"建议持有期限\"\n  },\n  \"risk_assessment\": {\n    \"risk_level\": \"高/中/低\",\n    \"main_risks\": {\n      \"operational_risks\": [\"经营风险因素\"],\n      \"financial_risks\": [\"财务风险因素\"],\n      \"industry_risks\": [\"行业风险因素\"],\n      \"policy_risks\": [\"政策风险因素\"]\n    },\n    \"risk_control_measures\": [\"风险控制建议\"]\n  },\n  \"analysis_summary\": \"200字以内的投资分析总结\",\n  \"metadata\": {\n    \"analysis_timestamp\": \"分析时间戳\",\n    \"data_quality\": \"excellent/good/fair/poor\",\n    \"confidence_level\": \"分析置信度1-10\",\n    \"analyst_notes\": \"分析师备注\",\n    \"data_sources\": [\"数据来源\"]\n  }\n}\n```\n\n⚠️ 重要声明：\n1. 基本面分析基于历史财务数据，具有滞后性，仅供投资参考\n2. 投资有风险，入市需谨慎，请结合技术面和市场环境综合判断\n3. 本分析不构成具体投资建议，请根据个人风险偏好做出投资决策\n4. 建议持续关注公司经营状况和行业变化，及时调整投资策略\n\n输出时请确保JSON格式正确，所有字段完整填写，分析内容客观专业。"
+        }
+      },
+      "id": "a450969b-72fb-452a-8cf2-20e1ac05951f",
+      "name": "基本面分析师",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        832,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        848,
+        448
+      ],
+      "id": "f5983638-a4b8-4b1f-a0be-1abee560f96c",
+      "name": "Claude 4 Sonnet",
+      "credentials": {
+        "anthropicApi": {
+          "id": "5rbbyNDHSy4NIQw4",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst processedItems = items.map(item => {\n  const stockCode = item.json.query?.code;\n  \n  if (!stockCode || !/^\\d{6}$/.test(stockCode)) {\n    throw new Error(`请提供正确的6位股票代码: ?code=601838`);\n  }\n  \n  return {\n    json: {\n      stock_code: stockCode,\n      session_id: `fund_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,\n      analysis_type: 'fundamental',\n      request_timestamp: new Date().toISOString()\n    }\n  };\n});\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        224
+      ],
+      "id": "9076ccac-8e83-4e9a-9cb3-ffd14c3e4556",
+      "name": "参数提取"
+    },
+    {
+      "parameters": {
+        "url": "=http://35.77.54.203:3003/stocks/{{ $json.stock_code }}/analysis/fundamental",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        448
+      ],
+      "id": "61aca087-994c-4c36-9b59-f9fd5e942105",
+      "name": "get_fundamental_data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 获取所有输入项\nconst items = $input.all();\n\nif (items.length === 0) {\n  return [{ json: { error: \"No input data received.\" } }];\n}\n\n// 从第一个输入项中获取数据\nconst inputItem = items[0];\nlet analysisData = null;\nlet outputString = \"\";\n\n// 尝试获取output字符串\nif (inputItem.output) {\n  outputString = inputItem.output;\n} else if (inputItem.json && inputItem.json.output) {\n  outputString = inputItem.json.output;\n} else {\n  return [{\n    json: {\n      error: \"Input data does not contain the expected 'output' field.\"\n    }\n  }];\n}\n\n// 提取output中的JSON部分\nconst jsonStart = outputString.indexOf('{');\nconst jsonEnd = outputString.lastIndexOf('}') + 1;\n\nif (jsonStart === -1) {\n  return [{\n    json: {\n      error: \"No JSON data found in output field - could not find opening '{'\",\n    }\n  }];\n}\n\n// 提取可能的JSON字符串\nlet jsonString = outputString.substring(jsonStart);\nif (jsonEnd !== -1) {\n  jsonString = outputString.substring(jsonStart, jsonEnd);\n}\n\n// 尝试修复常见的JSON格式问题\nfunction attemptFixJson(jsonStr) {\n  // 尝试修复未闭合的引号\n  const quoteCount = (jsonStr.match(/\"/g) || []).length;\n  if (quoteCount % 2 !== 0) {\n    jsonStr += '\"';\n  }\n  \n  // 尝试修复未闭合的对象\n  const openBraceCount = (jsonStr.match(/{/g) || []).length;\n  const closeBraceCount = (jsonStr.match(/}/g) || []).length;\n  const braceDiff = openBraceCount - closeBraceCount;\n  if (braceDiff > 0) {\n    jsonStr += '}'.repeat(braceDiff);\n  }\n  \n  // 尝试修复未闭合的数组\n  const openBracketCount = (jsonStr.match(/\\[/g) || []).length;\n  const closeBracketCount = (jsonStr.match(/]/g) || []).length;\n  const bracketDiff = openBracketCount - closeBracketCount;\n  if (bracketDiff > 0) {\n    jsonStr += ']'.repeat(bracketDiff);\n  }\n  \n  return jsonStr;\n}\n\n// 尝试解析JSON，带修复机制\ntry {\n  // 先尝试直接解析\n  analysisData = JSON.parse(jsonString);\n} catch (e) {\n  try {\n    // 尝试修复后再解析\n    const fixedJson = attemptFixJson(jsonString);\n    analysisData = JSON.parse(fixedJson);\n  } catch (fixError) {\n    return [{\n      json: {\n        error: \"Failed to parse JSON from output field even after attempted fixes\",\n        original_error: e.message,\n        fix_attempt_error: fixError.message,\n        json_preview: jsonString.substring(0, 100) + \"...\" // 显示部分内容用于调试\n      }\n    }];\n  }\n}\n\n// 提取关键信息\nconst result = {\n  // 股票基本信息\n  stock_info: analysisData.stock_info || {},\n  \n  // 核心财务指标\n  key_financials: {\n    roe: analysisData.financial_analysis?.profitability?.roe || \"N/A\",\n    roa: analysisData.financial_analysis?.profitability?.roa || \"N/A\",\n    gross_margin: analysisData.financial_analysis?.profitability?.gross_margin || \"N/A\",\n    net_margin: analysisData.financial_analysis?.profitability?.net_margin || \"N/A\",\n    revenue_growth: analysisData.financial_analysis?.growth_ability?.revenue_growth || \"N/A\",\n    profit_growth: analysisData.financial_analysis?.growth_ability?.profit_growth || \"N/A\",\n    debt_ratio: analysisData.financial_analysis?.solvency?.debt_ratio || \"N/A\",\n    current_ratio: analysisData.financial_analysis?.solvency?.current_ratio || \"N/A\",\n    operating_cash_flow: analysisData.financial_analysis?.cash_flow?.operating_cash_flow || \"N/A\"\n  },\n  \n  // 公司概况\n  company_profile: {\n    main_business: analysisData.company_overview?.main_business || \"N/A\",\n    market_position: analysisData.company_overview?.market_position || \"N/A\",\n    competitive_advantages: analysisData.company_overview?.competitive_advantages || []\n  },\n  \n  // 行业分析要点\n  industry_insights: {\n    industry_cycle: analysisData.industry_analysis?.industry_cycle || \"N/A\",\n    market_size: analysisData.industry_analysis?.market_size || \"N/A\",\n    industry_outlook: analysisData.industry_analysis?.industry_outlook || \"N/A\"\n  },\n  \n  // 估值分析\n  valuation: {\n    current_pe: analysisData.valuation_analysis?.relative_valuation?.current_pe || \"N/A\",\n    pb_ratio: analysisData.valuation_analysis?.relative_valuation?.pb_analysis || \"N/A\",\n    valuation_conclusion: analysisData.valuation_analysis?.valuation_conclusion || \"N/A\",\n    target_price_range: analysisData.investment_recommendation?.target_price_range || \"N/A\"\n  },\n  \n  // 投资建议\n  investment_advice: {\n    rating: analysisData.investment_recommendation?.rating || \"N/A\",\n    upside_potential: analysisData.investment_recommendation?.upside_potential || \"N/A\",\n    key_catalysts: analysisData.investment_recommendation?.key_catalysts || []\n  },\n  \n  // 风险评估\n  risk_assessment: {\n    risk_level: analysisData.risk_assessment?.risk_level || \"N/A\",\n    main_risks: analysisData.risk_assessment?.main_risks || {}\n  },\n  \n  // 分析总结\n  summary: analysisData.analysis_summary || \"N/A\"\n};\n\nreturn [{ json: result }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        224
+      ],
+      "id": "38e56371-af55-4638-81f8-9a1fb1ab8769",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1408,
+        224
+      ],
+      "id": "6df93b6b-1d95-408a-812e-6474c2d361ee",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "基本面分析触发器": {
+      "main": [
+        [
+          {
+            "node": "参数提取",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "基本面分析师": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude 4 Sonnet": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "基本面分析师",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "参数提取": {
+      "main": [
+        [
+          {
+            "node": "基本面分析师",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_fundamental_data": {
+      "ai_tool": [
+        [
+          {
+            "node": "基本面分析师",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "846662ea-cef9-4964-a898-e7f82f4626b9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "10e0bafc59087611d6c482914c57b4ec59f75077e020a64fa5f8336fb3fa7b51"
+  },
+  "id": "T8fR7bMOuVE6x0MD",
+  "tags": []
+}

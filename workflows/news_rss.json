@@ -1,5 +1,5 @@
 {
-  "name": "AI新闻分析工作流 - 最终优化版",
+  "name": "AI新闻分析工作流_0828",
   "nodes": [
     {
       "parameters": {
@@ -7,11 +7,14 @@
         "height": 180,
         "width": 250
       },
-      "id": "d0aee33f-27a8-4f36-be23-ad4c31966163",
+      "id": "2d78a4f8-2ec4-4708-8ab4-16f66d641841",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [144, -128]
+      "position": [
+        -768,
+        -224
+      ]
     },
     {
       "parameters": {
@@ -20,8 +23,11 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [192, 192],
-      "id": "1935d7b7-2009-48d0-ac2d-939d2af6bec3",
+      "position": [
+        -800,
+        0
+      ],
+      "id": "65946aa8-f884-490c-9fed-5414947d5e8a",
       "name": "Webhook",
       "webhookId": "23136ca0-f84a-44f9-9113-088edc6643cf"
     },
@@ -34,18 +40,24 @@
       },
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [416, 192],
-      "id": "4d5b320a-0851-4661-8d2f-d5013d68e876",
+      "position": [
+        -576,
+        0
+      ],
+      "id": "dd0e0e72-35b5-41b1-81d1-81c1f805d8ae",
       "name": "RSS Read"
     },
     {
       "parameters": {
-        "jsCode": "// RSS Read输出数据预处理 - 修正变量命名和数据保留\nconst items = $input.all();\nconst limitedItems = items.slice(0, 2);\n\n// 处理RSS数据，确保所有原始数据都被保留\nconst processedItems = limitedItems.map(item => {\n  const data = item.json;\n  \n  // 构建Agent期望的chatInput格式\n  const chatInput = {\n    title: data.title || '未知标题',\n    content: data.content || data.description || data.summary || '',\n    link: data.link || data.url || '',\n    pubDate: data.pubDate || data.isoDate || new Date().toISOString(),\n    author: data.author || data.creator || '未知作者',\n    categories: data.categories || [],\n    // 组合完整的新闻文本供AI分析\n    fullText: `标题: ${data.title || ''}\\n\\n内容: ${data.content || data.description || data.summary || ''}\\n\\n链接: ${data.link || ''}\\n\\n发布时间: ${data.pubDate || data.isoDate || ''}`\n  };\n\n  return {\n    json: {\n      // AI Agent需要的输入\n      chatInput: chatInput.fullText,\n      // 保留完整的新闻数据供后续节点使用\n      newsData: chatInput,\n      originalRssData: data,\n      // 生成唯一的会话ID\n      sessionId: `news_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,\n      // 直接传递标题和URL，确保后续节点能获取到\n      newsTitle: data.title || '未知标题',\n      newsUrl: data.link || data.url || '',\n      newsAuthor: data.author || data.creator || '未知作者',\n      newsPubDate: data.pubDate || data.isoDate || null\n    }\n  };\n});\n\nreturn processedItems;"
+        "jsCode": "// RSS Read输出数据预处理 - 修正变量命名和数据保留\nconst items = $input.all();\nconst limitedItems = items.slice(0, 5);\n\n// 处理RSS数据，确保所有原始数据都被保留\nconst processedItems = limitedItems.map(item => {\n  const data = item.json;\n  \n  // 构建Agent期望的chatInput格式\n  const chatInput = {\n    title: data.title || '未知标题',\n    content: data.content || data.description || data.summary || '',\n    link: data.link || data.url || '',\n    pubDate: data.pubDate || data.isoDate || new Date().toISOString(),\n    author: data.author || data.creator || '未知作者',\n    categories: data.categories || [],\n    // 组合完整的新闻文本供AI分析\n    fullText: `标题: ${data.title || ''}\\n\\n内容: ${data.content || data.description || data.summary || ''}\\n\\n链接: ${data.link || ''}\\n\\n发布时间: ${data.pubDate || data.isoDate || ''}`\n  };\n\n  return {\n    json: {\n      // AI Agent需要的输入\n      chatInput: chatInput.fullText,\n      // 保留完整的新闻数据供后续节点使用\n      newsData: chatInput,\n      originalRssData: data,\n      // 生成唯一的会话ID\n      sessionId: `news_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,\n      // 直接传递标题和URL，确保后续节点能获取到\n      newsTitle: data.title || '未知标题',\n      newsUrl: data.link || data.url || '',\n      newsAuthor: data.author || data.creator || '未知作者',\n      newsPubDate: data.pubDate || data.isoDate || null\n    }\n  };\n});\n\nreturn processedItems;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [640, 192],
-      "id": "17f5859e-d429-483e-857a-f068a43f8f74",
+      "position": [
+        -352,
+        0
+      ],
+      "id": "a2ea0b8f-fc7f-49cf-8d90-43bc7ac27161",
       "name": "RSS数据预处理"
     },
     {
@@ -53,14 +65,17 @@
         "promptType": "define",
         "text": "=请分析以下新闻内容：{{ $json.chatInput }}\n\n请务必通过HTTP API工具验证股票信息并输出JSON分析结果。",
         "options": {
-          "systemMessage": "你是一个专业的中国股市新闻分析师。请用中文分析新闻内容，每条新闻限制分析3只股票。\n\n🎯 工作流程\n- 使用HTTP API工具查询股票信息\n- API格式：http://35.77.54.203:3003/stocks/{stock_code}?refresh=false\n- 输出JSON格式的分析结果\n\n📋 输出格式：\n```json\n{\n  \"news_source\": {\n    \"original_title\": \"原始标题\",\n    \"original_url\": \"原始链接\",\n    \"analysis_timestamp\": \"分析时间\"\n  },\n  \"news_analysis\": {\n    \"core_event\": \"核心事件描述\",\n    \"impact_direction\": \"正面/负面/中性\",\n    \"affected_industries\": [\"相关行业\"],\n    \"impact_magnitude\": \"高/中/低\"\n  },\n  \"stock_recommendations\": [\n    {\n      \"stock_code\": \"股票代码\",\n      \"stock_name\": \"股票名称\",\n      \"current_price\": 价格,\n      \"recommendation\": \"买入/持有/卖出\",\n      \"target_price\": \"目标价格\",\n      \"key_rationale\": \"推荐理由\",\n      \"risk_factors\": [\"风险因素\"],\n      \"api_data_verified\": true\n    }\n  ],\n  \"execution_summary\": {\n    \"api_calls_made\": 3,\n    \"stocks_analyzed\": [\"股票代码列表\"],\n    \"confidence_level\": \"高/中/低\"\n  }\n}\n```"
+          "systemMessage": "🧠 系统提示词：\n\n你是一个专门服务于 n8n 工作流的中国 A 股市场新闻分析 AI 代理。你的任务是基于输入的新闻内容，识别其中具备明确因果链条的事件对个股价格的影响，并在确认逻辑闭环成立的前提下，做出“买入”或“卖出”的投资级别推荐；若事件本身影响力不足、关联性不强或缺乏明确信号，则不推荐股票，仅做评论性分析或行业判断。\n\n🌏 语言要求：\n\n所有分析和输出必须为简体中文\n\n即使输入新闻是英文，分析结果也必须为中文\n\n所有 JSON 字段值均用中文填写\n\n内容需确保适合中国用户阅读理解\n\n🎯 工作流程\n第1步：新闻解析与影响识别\n\n仅分析事实性新闻（如政策落地、产业事故、经济数据、企业公告等），忽略评论性、预测性或主观观点类文章\n\n提炼核心事件（例如：铜矿崩塌、某项政策发布、生物科技技术突破等）\n\n明确涉及的概念板块或行业领域（如：有色金属、新能源、AI芯片等）\n\n判断预期影响方向（正面/负面/中性）\n\n第2步：相关股票识别与API调用\n\n基于新闻中的关键事实，识别最多5只与事件具备强关联逻辑的 A 股股票\n\n只能在具有关联行业内进行推荐；若新闻未指向具体行业，不推荐个股\n\n调用以下 API 查询股票信息：\n\n格式：http://35.77.54.203:3003/stocks/{stock_code}?refresh=false\n\n示例：http://35.77.54.203:3003/stocks/002366?refresh=false\n\n获取以下股票字段信息：当前价格、所属概念、市值等\n\n第3步：五维度严谨分析\n\n使用以下五维度框架判断该事件是否具备直接影响股价的逻辑闭环：\n\n📊 行业结构分析：新闻事件是否对所处行业产生结构性冲击或利好？\n📈 产业链上下游影响分析：事件对供应链上下游是否有传导性？\n🔍 当前市场趋势叠加分析：事件是否与当前主流行情/热点产生共振？\n📚 历史相似事件对比：历史上类似事件是否对股价产生显著影响？\n📍 地域与政策叠加影响：是否涉及区域政策倾斜、本地资源等特殊因素？\n\n第4步：股票推荐条件审查\n\n仅在以下条件同时满足时才推荐股票，并标记“买入”或“卖出”：\n\n新闻事件事实明确、可追踪；\n\n股票与事件具备清晰推理链条（例如“铜矿事故 ➝ 铜供应收缩 ➝ 铜价上涨 ➝ 国内铜生产企业受益”）；\n\n行业内一致性：若新闻确定行业，推荐股票必须归属于该行业；\n\n经 API 验证的基本面信息支撑逻辑成立。\n\n若上述任一条件未满足，不推荐个股，只输出行业分析和影响判断\n\n📋 输出格式要求 - 严格使用以下 JSON 格式，字段说明如下：\n{\n  \"news_source\": {\n    \"original_title\": \"保留原始标题\",\n    \"chinese_title\": \"中文翻译标题\",\n    \"original_url\": \"原始新闻链接\",\n    \"publish_time\": \"发布时间\",\n    \"analysis_timestamp\": \"分析时间戳\"\n  },\n  \"news_analysis\": {\n    \"core_event\": \"核心事件描述（中文）\",\n    \"impact_direction\": \"正面/负面/中性\",\n    \"affected_industries\": [\"行业1（中文）\", \"行业2（中文）\"],\n    \"impact_magnitude\": \"高/中/低\"\n  },\n  \"stock_recommendations\": [\n    {\n      \"stock_code\": \"000001\",\n      \"stock_name\": \"股票名称（中文）\",\n      \"current_price\": 10.50,\n      \"recommendation\": \"买入/卖出\",\n      \"target_price\": \"目标价格区间（如：12~13元）\",\n      \"four_dimensional_score\": 8.5,\n      \"key_rationale\": \"推荐核心理由，清晰表述事件影响路径及逻辑链条\",\n      \"risk_factors\": [\"风险因素1（中文）\", \"风险因素2（中文）\"],\n      \"api_data_verified\": true\n    }\n  ],\n  \"execution_summary\": {\n    \"api_calls_made\": 3,\n    \"stocks_analyzed\": [\"002366\", \"600362\"],\n    \"processing_timestamp\": \"2025-08-27T10:30:00Z\",\n    \"confidence_level\": \"高/中/低\"\n  }\n}\n\n⚠️ 重要注意事项\n\n如果输入新闻缺失以下任意一项关键信息（如标题、正文、时间、链接），则中止后续分析；\n\n不要伪造“未知作者”、“解析错误”这类占位符字段；\n\n在此类场景下，返回如下结构（只输出一次标准错误 JSON）：\n\n{\n  \"error\": {\n    \"message\": \"新闻内容无法解析，可能缺少标题或正文，或格式错误。\",\n    \"reason\": \"missing_title_or_body\",\n    \"suggestion\": \"请检查输入的新闻文本格式，确保包含清晰的标题和正文内容。\"\n  },\n  \"stock_recommendations\": []\n}\n\n\n不要输出 \"news_source\"、\"news_analysis\" 或 \"execution_summary\" 字段；\n\n若能解析但判断不建议推荐股票，仍正常输出 JSON，只将 \"stock_recommendations\" 设置为空数组即可。\n\n必须调用 API 核实股票信息，严禁凭空推荐\n\n严格控制推荐数量（最多5只，非必须推荐）\n\n输出 JSON 格式必须合法，字段完整\n\n所有输出信息必须为简体中文\n"
         }
       },
-      "id": "419dc1b2-0573-4061-9bab-650d518c6509",
+      "id": "c63c4ad4-4274-4421-9190-5df555ce9102",
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [928, 192]
+      "position": [
+        -128,
+        0
+      ]
     },
     {
       "parameters": {
@@ -74,8 +89,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
-      "position": [864, 416],
-      "id": "c238ee03-f4f1-4ed2-b8d6-319c7357615b",
+      "position": [
+        -208,
+        240
+      ],
+      "id": "f6fd998a-50d8-41c0-b3de-9acf5a0b28c0",
       "name": "Anthropic Chat Model",
       "credentials": {
         "anthropicApi": {
@@ -91,8 +109,11 @@
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.2,
-      "position": [1120, 416],
-      "id": "d768d420-e5f4-4314-99f5-97bcc99ad93d",
+      "position": [
+        128,
+        240
+      ],
+      "id": "9e21abb5-7bf3-4146-874d-0f89ef124950",
       "name": "HTTP Request"
     },
     {
@@ -101,8 +122,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1328, 192],
-      "id": "0b473ac2-666a-44fe-b042-b9ad71a27c76",
+      "position": [
+        224,
+        0
+      ],
+      "id": "5f3f4999-40f5-432b-a1ce-689754d0d757",
       "name": "Agent输出处理"
     },
     {
@@ -111,13 +135,15 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1536, 192],
-      "id": "cfab6eca-68fc-413f-b044-436460554cbc",
+      "position": [
+        448,
+        0
+      ],
+      "id": "5cd23d2c-9188-4287-8f60-09de37b3b10a",
       "name": "PostgreSQL数据映射"
     },
     {
       "parameters": {
-        "operation": "insert",
         "schema": {
           "__rl": true,
           "value": "public",
@@ -145,14 +171,180 @@
             "publication_time": "={{ $json.publication_time }}",
             "created_at": "={{ $json.created_at }}",
             "updated_at": "={{ $json.updated_at }}"
-          }
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "content_hash",
+              "displayName": "content_hash",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "news_time",
+              "displayName": "news_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "generation_time",
+              "displayName": "generation_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "analysis_quality_score",
+              "displayName": "analysis_quality_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processing_metadata",
+              "displayName": "processing_metadata",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "full_analysis",
+              "displayName": "full_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "github_url",
+              "displayName": "github_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "github_commit_sha",
+              "displayName": "github_commit_sha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "publication_status",
+              "displayName": "publication_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "publication_time",
+              "displayName": "publication_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
         },
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1760, 272],
-      "id": "177dda36-afea-4f28-84d6-db9d91d1e72c",
+      "position": [
+        672,
+        96
+      ],
+      "id": "a90e1c8e-ebde-45d7-87ec-c4542c52e1e4",
       "name": "保存到PostgreSQL",
       "credentials": {
         "postgres": {
@@ -166,14 +358,15 @@
         "sendTo": "wooyoo@gmail.com",
         "subject": "={{ $json.emailSubject }}",
         "message": "={{ $json.emailContent }}",
-        "options": {
-          "isBodyHtml": true
-        }
+        "options": {}
       },
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [1760, 112],
-      "id": "62bd6541-7598-439a-849a-9ab4da9dbb71",
+      "position": [
+        672,
+        -96
+      ],
+      "id": "6c7b60db-8f06-405c-8eeb-c49d4a8d1165",
       "name": "Send a message",
       "webhookId": "2100e9b4-6af3-4dac-8d9d-43f4559d6c2c",
       "credentials": {
@@ -182,6 +375,20 @@
           "name": "Gmail account"
         }
       }
+    },
+    {
+      "parameters": {
+        "url": "https://www.stats.gov.cn/sj/zxfb/rss.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        336
+      ],
+      "id": "66161415-eb7f-4828-8435-bbcfbc91c16a",
+      "name": "RSS Read1"
     }
   ],
   "pinData": {},
@@ -248,9 +455,7 @@
             "node": "保存到PostgreSQL",
             "type": "main",
             "index": 0
-          }
-        ],
-        [
+          },
           {
             "node": "Send a message",
             "type": "main",
@@ -280,14 +485,21 @@
           }
         ]
       ]
+    },
+    "RSS Read1": {
+      "main": [
+        []
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
+  "versionId": "3c32dc6b-6d7b-4154-b5a4-39cffbea1a4e",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "instanceId": "10e0bafc59087611d6c482914c57b4ec59f75077e020a64fa5f8336fb3fa7b51"
   },
-  "tags": ["AI分析", "新闻", "股票", "最终优化"]
+  "id": "ukjS3mKSjbgO9HsC",
+  "tags": []
 }

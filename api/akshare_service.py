@@ -566,3 +566,46 @@ class AkshareService:
         except:
             pass
         return ''
+    
+    def get_financial_abstract(self, stock_code: str) -> Optional[pd.DataFrame]:
+        """获取股票财务摘要数据 / Get stock financial abstract data"""
+        try:
+            def get_financial_data():
+                return ak.stock_financial_abstract(symbol=stock_code)
+            
+            financial_data = self._retry_request(get_financial_data)
+            
+            if financial_data is None or financial_data.empty:
+                logger.warning(f"无法获取股票 {stock_code} 的财务摘要数据")
+                return None
+            
+            logger.info(f"成功获取股票 {stock_code} 财务数据，共 {len(financial_data)} 行")
+            return financial_data
+            
+        except Exception as e:
+            logger.error(f"获取财务摘要数据失败: {str(e)}")
+            return None
+    
+    def get_stock_basic_info(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """获取股票基本信息 / Get stock basic information"""
+        try:
+            def get_basic_info():
+                return ak.stock_individual_info_em(symbol=stock_code)
+            
+            basic_info = self._retry_request(get_basic_info)
+            
+            if basic_info is None or basic_info.empty:
+                logger.warning(f"无法获取股票 {stock_code} 的基本信息")
+                return None
+            
+            # 转换为字典格式
+            result = {}
+            for _, row in basic_info.iterrows():
+                result[row['item']] = row['value']
+            
+            logger.info(f"成功获取股票 {stock_code} 基本信息")
+            return result
+            
+        except Exception as e:
+            logger.error(f"获取股票基本信息失败: {str(e)}")
+            return None

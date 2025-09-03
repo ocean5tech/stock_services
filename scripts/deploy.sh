@@ -1,241 +1,189 @@
 #!/bin/bash
-# -*- coding: utf-8 -*-
-# 股票服务部署脚本 / Stock Services Deployment Script
-# 服务器IP: 35.77.54.203
 
-set -e  # 遇到错误立即退出 / Exit immediately on error
+# 股票分析服务部署脚本
+# Stock Analysis Service Deployment Script
 
-echo "========================================"
-echo "股票服务部署开始 / Stock Services Deployment Starting"
-echo "服务器IP: 35.77.54.203"
-echo "部署时间: $(date)"
-echo "========================================"
+set -e  # 遇到错误立即退出
 
-# 颜色定义 / Color definitions
+echo "🚀 开始部署股票分析服务..."
+
+# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数 / Logging functions
+# 项目根目录
+PROJECT_DIR="/home/ubuntu/stock_services"
+LOG_DIR="${PROJECT_DIR}/logs"
+
+# 创建日志目录
+mkdir -p "$LOG_DIR"
+
+# 日志函数
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${GREEN}[INFO]${NC} $1" | tee -a "$LOG_DIR/deploy.log"
 }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1" | tee -a "$LOG_DIR/deploy.log"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_DIR/deploy.log"
 }
 
-# 检查是否以root用户运行 / Check if running as root user
-check_root() {
-    if [[ $EUID -eq 0 ]]; then
-        log_warning "检测到以root用户运行，建议使用普通用户 / Running as root user detected, recommend using normal user"
-    fi
-}
-
-# 检查系统依赖 / Check system dependencies
+# 检查依赖
 check_dependencies() {
-    log_info "检查系统依赖 / Checking system dependencies"
+    log_info "检查系统依赖..."
     
-    # 检查Python / Check Python
+    # 检查Python版本
     if ! command -v python3 &> /dev/null; then
-        log_error "Python3未安装 / Python3 not installed"
+        log_error "Python3 未安装"
         exit 1
     fi
-    log_success "Python3: $(python3 --version)"
     
-    # 检查pip / Check pip
+    python_version=$(python3 --version | awk '{print $2}')
+    log_info "Python版本: $python_version"
+    
+    # 检查pip
     if ! command -v pip3 &> /dev/null; then
-        log_error "pip3未安装 / pip3 not installed"
+        log_error "pip3 未安装"
         exit 1
     fi
-    log_success "pip3: $(pip3 --version)"
-    
-    # 检查PostgreSQL / Check PostgreSQL
-    if ! sudo systemctl is-active --quiet postgresql; then
-        log_warning "PostgreSQL服务未运行，正在启动 / PostgreSQL service not running, starting..."
-        sudo systemctl start postgresql
-        sudo systemctl enable postgresql
-    fi
-    log_success "PostgreSQL服务正在运行 / PostgreSQL service is running"
 }
 
-# 停止现有服务 / Stop existing services
+# 停止现有服务
 stop_existing_services() {
-    log_info "停止现有服务进程 / Stopping existing service processes"
+    log_info "停止现有服务..."
     
-    # 查找并终止占用端口的进程 / Find and kill processes using the ports
-    for port in 3003 3004 3005; do
-        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null ; then
-            log_warning "端口 $port 被占用，正在终止进程 / Port $port is occupied, terminating process"
-            sudo lsof -ti:$port | sudo xargs kill -9 2>/dev/null || true
-            sleep 2
-        fi
-    done
-    
-    log_success "所有端口已释放 / All ports have been freed"
+    # 停止端口3003上的进程
+    if lsof -ti:3003 2>/dev/null; then
+        log_warn "发现端口3003上的进程，正在停止..."
+        fuser -k 3003/tcp || true
+        sleep 2
+    fi
 }
 
-# 创建数据库 / Create database
-setup_database() {
-    log_info "设置数据库 / Setting up database"
+# 安装Python依赖
+install_python_dependencies() {
+    log_info "安装Python依赖..."
     
-    # 创建数据库用户和数据库 / Create database user and database
-    sudo -u postgres psql -c "CREATE DATABASE stock_services;" 2>/dev/null || log_warning "数据库stock_services可能已存在 / Database stock_services may already exist"
-    sudo -u postgres psql -c "CREATE USER postgres WITH PASSWORD 'postgres';" 2>/dev/null || log_warning "用户postgres可能已存在 / User postgres may already exist"
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE stock_services TO postgres;" 2>/dev/null || true
+    cd "$PROJECT_DIR"
     
-    log_success "数据库设置完成 / Database setup completed"
+    # 安装核心依赖
+    pip3 install fastapi==0.104.1 --break-system-packages || {
+        log_error "安装FastAPI失败"
+        exit 1
+    }
+    
+    pip3 install uvicorn==0.24.0 --break-system-packages || {
+        log_error "安装Uvicorn失败" 
+        exit 1
+    }
+    
+    pip3 install akshare==1.17.42 --break-system-packages || {
+        log_error "安装AKShare失败"
+        exit 1
+    }
+    
+    log_info "Python依赖安装完成"
 }
 
-# 安装Python依赖 / Install Python dependencies
-install_dependencies() {
-    log_info "安装Python依赖 / Installing Python dependencies"
+# 验证API文件
+validate_api_files() {
+    log_info "验证API文件..."
     
-    # 升级pip / Upgrade pip
-    python3 -m pip install --upgrade pip
+    if [ ! -f "$PROJECT_DIR/api/stock_analysis_api.py" ]; then
+        log_error "股票分析API文件不存在: api/stock_analysis_api.py"
+        exit 1
+    fi
     
-    # 安装依赖 / Install dependencies
-    pip3 install -r requirements.txt
+    # 语法检查
+    if ! python3 -m py_compile "$PROJECT_DIR/api/stock_analysis_api.py"; then
+        log_error "API文件语法错误"
+        exit 1
+    fi
     
-    log_success "Python依赖安装完成 / Python dependencies installed"
+    log_info "API文件验证通过"
 }
 
-# 初始化数据库表 / Initialize database tables
-init_database() {
-    log_info "初始化数据库表 / Initializing database tables"
-    
-    python3 -c "
-import sys; sys.path.append('./api')
-from database import init_database, test_database_connection
-if test_database_connection():
-    print('数据库连接成功 / Database connection successful')
-    if init_database():
-        print('数据库表初始化成功 / Database tables initialized successfully')
-    else:
-        print('数据库表初始化失败 / Database tables initialization failed')
-        exit(1)
-else:
-    print('数据库连接失败 / Database connection failed')
-    exit(1)
-"
-    
-    log_success "数据库初始化完成 / Database initialization completed"
-}
-
-# 启动服务 / Start services
+# 启动服务
 start_services() {
-    log_info "启动服务 / Starting services"
+    log_info "启动股票分析API服务..."
     
-    # 创建日志目录 / Create log directory
-    mkdir -p logs
+    cd "$PROJECT_DIR"
     
-    # 启动中国股票服务 / Start Chinese stock service
-    log_info "启动中国股票服务 (端口 3003) / Starting Chinese stock service (port 3003)"
-    nohup python3 api/chinese_stock_api.py > logs/chinese_stock.log 2>&1 &
-    sleep 3
+    # 启动股票分析API (端口3003)
+    nohup python3 -m uvicorn api.stock_analysis_api:app --host 0.0.0.0 --port 3003 \
+        > "$LOG_DIR/stock_api.log" 2>&1 &
     
-    # 启动美国股票服务 / Start US stock service
-    log_info "启动美国股票服务 (端口 3004) / Starting US stock service (port 3004)"
-    nohup python3 api/us_stock_api.py > logs/us_stock.log 2>&1 &
-    sleep 3
+    API_PID=$!
+    echo $API_PID > "$LOG_DIR/stock_api.pid"
     
-    # 启动中国期货服务 / Start Chinese futures service
-    log_info "启动中国期货服务 (端口 3005) / Starting Chinese futures service (port 3005)"
-    nohup python3 api/futures_api.py > logs/futures.log 2>&1 &
-    sleep 3
+    log_info "股票分析API启动完成，PID: $API_PID"
     
-    log_success "所有服务启动完成 / All services started"
+    # 等待服务启动
+    log_info "等待服务启动..."
+    sleep 5
 }
 
-# 验证服务状态 / Verify service status
-verify_services() {
-    log_info "验证服务状态 / Verifying service status"
+# 健康检查
+health_check() {
+    log_info "执行健康检查..."
     
-    # 检查服务端口 / Check service ports
-    for port in 3003 3004 3005; do
-        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null; then
-            log_success "端口 $port 服务正在运行 / Service on port $port is running"
-        else
-            log_error "端口 $port 服务未运行 / Service on port $port is not running"
-            return 1
-        fi
-    done
-    
-    # 测试API端点 / Test API endpoints
-    sleep 10  # 等待服务完全启动 / Wait for services to fully start
-    
-    log_info "测试API端点 / Testing API endpoints"
-    
-    # 测试中国股票服务 / Test Chinese stock service
-    if curl -s "http://35.77.54.203:3003/" > /dev/null; then
-        log_success "中国股票服务API响应正常 / Chinese stock service API responding normally"
+    # 检查股票分析API
+    if curl -s -f "http://127.0.0.1:3003/" > /dev/null; then
+        log_info "✅ 股票分析API (端口3003) 健康检查通过"
+        return 0
     else
-        log_error "中国股票服务API无响应 / Chinese stock service API not responding"
-    fi
-    
-    # 测试美国股票服务 / Test US stock service
-    if curl -s "http://35.77.54.203:3004/" > /dev/null; then
-        log_success "美国股票服务API响应正常 / US stock service API responding normally"
-    else
-        log_error "美国股票服务API无响应 / US stock service API not responding"
-    fi
-    
-    # 测试中国期货服务 / Test Chinese futures service
-    if curl -s "http://35.77.54.203:3005/" > /dev/null; then
-        log_success "中国期货服务API响应正常 / Chinese futures service API responding normally"
-    else
-        log_error "中国期货服务API无响应 / Chinese futures service API not responding"
+        log_error "❌ 股票分析API (端口3003) 健康检查失败"
+        return 1
     fi
 }
 
-# 显示服务信息 / Display service information
-show_service_info() {
-    log_info "服务信息 / Service Information"
-    echo "========================================"
-    echo "服务器IP: 35.77.54.203"
-    echo "中国股票服务: http://35.77.54.203:3003"
-    echo "美国股票服务: http://35.77.54.203:3004" 
-    echo "中国期货服务: http://35.77.54.203:3005"
-    echo "========================================"
-    echo "API文档地址 / API Documentation URLs:"
-    echo "中国股票API文档: http://35.77.54.203:3003/docs"
-    echo "美国股票API文档: http://35.77.54.203:3004/docs"
-    echo "中国期货API文档: http://35.77.54.203:3005/docs"
-    echo "========================================"
-    echo "日志文件位置 / Log file locations:"
-    echo "中国股票服务日志: ./logs/chinese_stock.log"
-    echo "美国股票服务日志: ./logs/us_stock.log"
-    echo "中国期货服务日志: ./logs/futures.log"
-    echo "========================================"
+# 显示部署信息
+show_deployment_info() {
+    log_info "📊 部署信息汇总"
+    echo "==========================================="
+    echo "🚀 服务状态:"
+    echo "   - 股票分析API: http://35.77.54.203:3003"
+    echo ""
+    echo "📖 API文档:"
+    echo "   - Swagger UI: http://35.77.54.203:3003/docs"
+    echo "   - ReDoc: http://35.77.54.203:3003/redoc"
+    echo ""
+    echo "📝 日志文件:"
+    echo "   - API日志: $LOG_DIR/stock_api.log"
+    echo "   - 部署日志: $LOG_DIR/deploy.log"
+    echo "==========================================="
 }
 
-# 主函数 / Main function
+# 主函数
 main() {
-    check_root
+    echo "开始时间: $(date)" >> "$LOG_DIR/deploy.log"
+    
     check_dependencies
     stop_existing_services
-    setup_database
-    install_dependencies
-    init_database
+    install_python_dependencies
+    validate_api_files
     start_services
-    verify_services
-    show_service_info
     
-    log_success "股票服务部署完成 / Stock services deployment completed successfully!"
+    # 等待服务稳定
+    sleep 3
+    
+    if health_check; then
+        log_info "🎉 部署成功完成!"
+        show_deployment_info
+    else
+        log_error "⚠️ 部署完成但健康检查失败，请检查日志"
+        exit 1
+    fi
+    
+    echo "结束时间: $(date)" >> "$LOG_DIR/deploy.log"
 }
 
-# 错误处理 / Error handling
-trap 'log_error "部署过程中发生错误 / Error occurred during deployment"; exit 1' ERR
-
-# 执行主函数 / Execute main function
-main
+# 脚本入口
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

@@ -1,0 +1,216 @@
+{
+  "name": "技术分析",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 技术面分析模块\n📊 专业股票技术分析\n🔍 输入：股票代码或公司名\n📈 输出：标准化技术分析报告\n🎯 用途：为编辑Agent提供技术面数据",
+        "height": 180,
+        "width": 280
+      },
+      "id": "3a655fcc-3375-482e-a0b2-af6f7a54f26f",
+      "name": "说明文档",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "path": "technical-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        80
+      ],
+      "id": "db615021-3b16-46cd-a508-6b2109b850da",
+      "name": "技术分析触发器",
+      "webhookId": "technical-analysis-trigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=请对以下股票进行专业技术分析：\n\n股票代码：{{ $('参数提取').item.json.stock_code }}\n会话ID：{{ $('参数提取').item.json.session_id }}\n\n技术数据：{{ JSON.stringify($json) }}\n\n请基于提供的技术数据进行深度分析，输出标准化的技术分析报告。",
+        "options": {
+          "systemMessage": "🧠 系统角色定义：\n\n你是一位资深的A股市场技术分析师，拥有15年股票技术分析经验，专精于中国A股市场的技术面分析。你的分析将作为专业投资决策的重要参考。\n\n📊 核心专业领域：\n1. **趋势分析**: 多时间框架趋势识别和方向判断\n2. **技术指标解读**: MA、RSI、MACD、KDJ等主流指标分析\n3. **关键技术位**: 支撑阻力位、突破确认、回踩验证\n4. **量价关系**: 成交量与价格变动的相关性分析\n5. **形态识别**: K线组合、图表形态、反转/持续信号\n6. **风险控制**: 止损止盈位设定、仓位管理建议\n\n🎯 分析框架 (务必按此结构输出)：\n\n## 1. 趋势分析\n- 短期趋势(1-5日): 明确方向和强度\n- 中期趋势(1-4周): 主要运行方向\n- 长期趋势(1-3月): 大趋势判断\n- 趋势一致性: 多时间框架的协调性\n\n## 2. 技术指标综合解读\n- 均线系统: MA5/10/20/60的排列和价格关系\n- RSI强弱: 超买超卖、背离信号\n- MACD动能: 金叉死叉、柱状线变化\n- KDJ摆荡: 高低位信号、钝化现象\n\n## 3. 关键技术位识别\n- 重要支撑位: 按强度排序(至少2个)\n- 重要阻力位: 按强度排序(至少2个)\n- 当前位置: 相对关键位的位置分析\n- 突破概率: 上下突破的可能性评估\n\n## 4. 成交量分析\n- 量能状态: 放量/缩量/正常\n- 量价配合: 量价关系是否健康\n- 成交量信号: 突破、回调时的量能确认\n\n## 5. 交易信号判断\n- 操作建议: 买入/卖出/观望/减仓\n- 信号强度: 1-10分评分\n- 入场时机: 具体的买卖点建议\n- 止损止盈: 明确的风险控制位置\n\n## 6. 风险评估\n- 技术风险等级: 低/中/高\n- 主要风险点: 具体风险因素\n- 应对策略: 风险控制措施\n\n🔍 分析要求：\n\n1. **数据驱动**: 严格基于提供的真实技术数据进行分析\n2. **逻辑清晰**: 每个判断都有明确的技术依据\n3. **量化表达**: 尽量给出具体的价格位、百分比、评分\n4. **实战导向**: 分析结果要具有可操作性\n5. **风险意识**: 充分提示技术分析的局限性和风险\n\n📋 输出格式要求：\n\n请严格按照JSON格式输出，确保数据结构完整：\n\n```json\n{\n  \"analysis_type\": \"technical\",\n  \"stock_info\": {\n    \"code\": \"股票代码\",\n    \"name\": \"股票名称\",\n    \"current_price\": 当前价格,\n    \"analysis_date\": \"分析日期\"\n  },\n  \"technical_analysis\": {\n    \"trend_analysis\": {\n      \"short_term\": \"短期趋势描述\",\n      \"medium_term\": \"中期趋势描述\", \n      \"long_term\": \"长期趋势描述\",\n      \"overall_direction\": \"bullish/bearish/neutral\",\n      \"trend_strength\": 评分1-10\n    },\n    \"technical_indicators\": {\n      \"ma_analysis\": \"均线系统分析\",\n      \"rsi_analysis\": \"RSI指标分析\",\n      \"macd_analysis\": \"MACD指标分析\",\n      \"kdj_analysis\": \"KDJ指标分析\",\n      \"indicators_consensus\": \"指标一致性评估\"\n    },\n    \"key_levels\": {\n      \"support_levels\": [支撑位数组],\n      \"resistance_levels\": [阻力位数组],\n      \"current_position\": \"当前位置描述\",\n      \"breakthrough_probability\": {\n        \"upward\": 向上突破概率,\n        \"downward\": 向下突破概率\n      }\n    },\n    \"volume_analysis\": {\n      \"volume_trend\": \"成交量趋势\",\n      \"volume_signal\": \"成交量信号分析\",\n      \"price_volume_relationship\": \"量价关系评估\"\n    }\n  },\n  \"trading_signals\": {\n    \"recommendation\": \"买入/卖出/观望/减仓\",\n    \"signal_strength\": 信号强度1-10,\n    \"entry_strategy\": \"入场策略建议\",\n    \"exit_strategy\": \"出场策略建议\",\n    \"stop_loss\": 止损价位,\n    \"take_profit\": [止盈价位数组],\n    \"position_sizing\": \"仓位建议\"\n  },\n  \"risk_assessment\": {\n    \"risk_level\": \"低/中/高\",\n    \"main_risks\": [\"主要风险因素数组\"],\n    \"risk_control_measures\": [\"风险控制措施数组\"],\n    \"market_environment\": \"市场环境评估\"\n  },\n  \"analysis_summary\": \"150字以内的分析总结\",\n  \"metadata\": {\n    \"analysis_timestamp\": \"分析时间戳\",\n    \"data_quality\": \"excellent/good/fair/poor\",\n    \"confidence_level\": 分析置信度1-10,\n    \"analyst_notes\": \"分析师备注\"\n  }\n}\n```\n\n⚠️ 重要提醒：\n1. 技术分析存在滞后性，仅供参考，不构成投资建议\n2. 市场有风险，投资需谨慎，请结合基本面和市场环境综合判断\n3. 建议设置合理止损，控制投资风险\n4. 请根据个人风险承受能力进行投资决策\n\n输出时请确保JSON格式正确，所有字段完整填写。"
+        }
+      },
+      "id": "76d7f03c-46f4-44e2-acf0-0b73182dafc2",
+      "name": "技术面分析师",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        240,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        288
+      ],
+      "id": "c53184df-e1a7-4e6e-b442-b3d41d93300a",
+      "name": "Claude 4 Sonnet",
+      "credentials": {
+        "anthropicApi": {
+          "id": "5rbbyNDHSy4NIQw4",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 超级安全的调试版本 - 标准化输出\nconst items = $input.all();\n\nconsole.log('=== 调试信息开始 ===');\nconsole.log('输入项目数量:', items.length);\n\nconst processedItems = items.map((item, index) => {\n  console.log(`处理第${index + 1}项...`);\n  \n  try {\n    // 安全地获取输入数据\n    const agentOutput = item.json?.output || item.json?.response || item.json || {};\n    console.log('Agent输出类型:', typeof agentOutput);\n    \n    // 初始化默认值\n    let stockCode = 'unknown';\n    let stockName = '未知股票';\n    let sessionId = `fallback_${Date.now()}`;\n    let analysisData = {};\n    \n    // 尝试解析AI输出\n    if (typeof agentOutput === 'string') {\n      console.log('处理字符串输出，长度:', agentOutput.length);\n      \n      // 查找JSON内容\n      const jsonMatch = agentOutput.match(/```json\\s*([\\s\\S]*?)\\s*```/);\n      if (jsonMatch) {\n        console.log('找到JSON块');\n        try {\n          analysisData = JSON.parse(jsonMatch[1]);\n          console.log('JSON解析成功');\n        } catch (e) {\n          console.log('JSON解析失败:', e.message);\n          analysisData = { error: 'JSON解析失败', raw: jsonMatch[1].substring(0, 100) };\n        }\n      } else {\n        console.log('未找到JSON块，尝试直接解析');\n        analysisData = { \n          error: '未找到标准JSON格式', \n          raw_output: agentOutput.substring(0, 200)\n        };\n      }\n    } else if (typeof agentOutput === 'object' && agentOutput !== null) {\n      console.log('处理对象输出');\n      analysisData = agentOutput;\n    } else {\n      console.log('未知输出格式:', typeof agentOutput);\n      analysisData = { error: '未知输出格式', type: typeof agentOutput };\n    }\n    \n    // 尝试从分析结果获取股票信息\n    if (analysisData.stock_info) {\n      stockCode = analysisData.stock_info.code || stockCode;\n      stockName = analysisData.stock_info.name || stockName;\n    }\n    \n    console.log('最终股票信息:', { stockCode, stockName, sessionId });\n    \n    // 构建安全的输出\n    const result = {\n      json: {\n        // 基础信息\n        processing_success: true,\n        processed_at: new Date().toISOString(),\n        stock_code: stockCode,\n        stock_name: stockName,\n        session_id: sessionId,\n        \n        // 分析结果\n        technical_analysis_result: analysisData,\n        \n        // 为编辑准备的摘要\n        summary_for_editor: {\n          analysis_type: 'technical',\n          stock_info: {\n            code: stockCode,\n            name: stockName\n          },\n          key_findings: {\n            trend: analysisData.technical_analysis?.trend_analysis?.overall_direction || 'unknown',\n            recommendation: analysisData.trading_signals?.recommendation || 'unknown',\n            risk_level: analysisData.risk_assessment?.risk_level || 'unknown',\n            signal_strength: analysisData.trading_signals?.signal_strength || 0\n          },\n          analysis_summary: analysisData.analysis_summary || '技术分析完成',\n          confidence_level: analysisData.metadata?.confidence_level || 5\n        },\n        \n        // 调试信息\n        debug_info: {\n          input_type: typeof agentOutput,\n          has_stock_info: !!analysisData.stock_info,\n          has_technical_analysis: !!analysisData.technical_analysis,\n          processing_time: new Date().toISOString()\n        }\n      }\n    };\n    \n    console.log('处理完成，返回结果');\n    return result;\n    \n  } catch (error) {\n    console.error('处理过程中发生错误:', error.message);\n    \n    // 错误情况下的安全返回\n    return {\n      json: {\n        processing_success: false,\n        error_message: error.message,\n        processed_at: new Date().toISOString(),\n        stock_code: 'error',\n        stock_name: '处理失败',\n        session_id: `error_${Date.now()}`,\n        \n        technical_analysis_result: {\n          error: {\n            message: error.message,\n            timestamp: new Date().toISOString()\n          }\n        },\n        \n        summary_for_editor: {\n          analysis_type: 'technical',\n          stock_info: { code: 'error', name: '处理失败' },\n          key_findings: {\n            trend: 'error',\n            recommendation: 'error', \n            risk_level: 'unknown',\n            signal_strength: 0\n          },\n          analysis_summary: '技术分析处理失败: ' + error.message,\n          confidence_level: 0\n        }\n      }\n    };\n  }\n});\n\nconsole.log('=== 调试信息结束 ===');\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        80
+      ],
+      "id": "4685c75c-0fc5-498e-9d8c-bda7d465f94b",
+      "name": "标准化输出"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst processedItems = items.map(item => {\n  const stockCode = item.json.query?.code;\n  \n  if (!stockCode || !/^\\d{6}$/.test(stockCode)) {\n    throw new Error(`请提供正确的6位股票代码: ?code=601838`);\n  }\n  \n  return {\n    json: {\n      stock_code: stockCode,\n      session_id: `tech_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,\n      analysis_type: 'technical',\n      request_timestamp: new Date().toISOString()\n    }\n  };\n});\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        80
+      ],
+      "id": "24beb8fa-9daa-40d4-92c7-b3b709b3f21a",
+      "name": "参数提取"
+    },
+    {
+      "parameters": {
+        "url": "=http://35.77.54.203:3003/stocks/{{ $json.stock_code }}/analysis/technical",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        288
+      ],
+      "id": "0d20ebcc-51ef-4756-a566-efb92c82d907",
+      "name": "get_technical_data"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        816,
+        80
+      ],
+      "id": "16851ac7-210f-4f32-8621-ee1f5f34fd48",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "技术分析触发器": {
+      "main": [
+        [
+          {
+            "node": "参数提取",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "技术面分析师": {
+      "main": [
+        [
+          {
+            "node": "标准化输出",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude 4 Sonnet": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "技术面分析师",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "参数提取": {
+      "main": [
+        [
+          {
+            "node": "技术面分析师",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_technical_data": {
+      "ai_tool": [
+        [
+          {
+            "node": "技术面分析师",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "标准化输出": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e9f6344c-a422-4563-9abe-107f7570fb96",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "10e0bafc59087611d6c482914c57b4ec59f75077e020a64fa5f8336fb3fa7b51"
+  },
+  "id": "tqjAt7GRjVB812F0",
+  "tags": []
+}

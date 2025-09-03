@@ -1,0 +1,361 @@
+{
+  "name": "主调度器",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 股票分析主调度器\n📊 保持子工作流独立性\n🔍 输入：股票代码\n⚡ 调用：各子工作流webhook获取分析结果\n🎯 整合：所有分析数据后调用编辑工作流\n📝 最终：生成深度股票评论文章\n💡 优势：各子工作流可独立修改提示词和模型",
+        "height": 220,
+        "width": 350
+      },
+      "id": "ecbfe73e-e09d-40eb-9da5-eb4241691cb9",
+      "name": "主调度器说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1328,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "path": "stock-master",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1072,
+        208
+      ],
+      "id": "8d1b52ab-be03-4833-a8bb-8a149dbc30db",
+      "name": "主调度触发器",
+      "webhookId": "stock-master-trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://ocean5tech.app.n8n.cloud/webhook/fundamental-analysis",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.stock_code }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "820769fe-5d24-4200-8a2b-04b1218763ad",
+      "name": "调用基本面分析工作流",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -624,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ocean5tech.app.n8n.cloud/webhook/news-analysis",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.stock_code }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "e7a505be-cfce-4e0b-92bd-757ce742b1a7",
+      "name": "调用消息面分析工作流",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -624,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ocean5tech.app.n8n.cloud/webhook/technical-analysis",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.stock_code }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "aa51fe71-b1c5-4c82-aa32-e4fb7be236b1",
+      "name": "调用技术面分析工作流",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -624,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -400,
+        192
+      ],
+      "id": "869572a1-7619-4afd-aebe-88d5a80d84cf",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 整合三个分析结果\nconst items = $input.all();\n\nconsole.log(\"接收到的项目数量:\", items.length);\n\n// 确保我们有3个分析结果\nif (items.length !== 3) {\n    throw new Error(`应该接收3个分析结果，实际接收了${items.length}个`);\n}\n\n// 整合数据\nconst consolidatedData = {\n    fundamental_data: items[0].json,\n    news_data: items[1].json, \n    technical_data: items[2].json,\n    stock_code: items[0].json.stock_info?.code || items[1].json.stock_info?.code || items[2].json.stock_info?.code,\n    analysis_timestamp: new Date().toISOString()\n};\n\n// 关键：只返回1个项目\nreturn [{ json: consolidatedData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        208
+      ],
+      "id": "f0145d16-08a6-4703-8f9c-6a5a376adfce",
+      "name": "准备编辑数据"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst processed = items.map(item => {\n  const query = item.json.query || {};\n  const stockCode = query.code;\n\n  if (!stockCode) {\n    throw new Error(\"Missing 'code' parameter in request\");\n  }\n\n  return {\n    json: {\n      stock_code: stockCode\n    }\n  };\n});\n\nreturn processed;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        208
+      ],
+      "id": "969077b0-363c-44e8-ada8-b17e5c268b09",
+      "name": "取得股票代码"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=请基于以下三个维度的分析数据，撰写一篇综合性的专业股票投资分析文章：\n\n**基本面分析数据：**\n{{ JSON.stringify($input.all()[0].json) }}\n\n**消息面分析数据：**\n{{ JSON.stringify($input.all()[1].json) }}\n\n**技术面分析数据：**\n{{ JSON.stringify($input.all()[2].json) }}\n\n请按JSON格式输出一篇完整的专业分析文章（综合所有三个维度数据，不要分开分析）。",
+        "options": {
+          "systemMessage": "你是一位拥有15年证券市场分析经验的资深金融评论员，曾在知名券商研究所担任首席分析师。你的分析风格以客观、专业、严谨著称，善于从多维度综合评估股票投资价值。\n\n**你的核心特质：**\n- 数据驱动决策，每个判断都有充分依据\n- 客观中立，既看到机会也识别风险\n- 语言专业但通俗易懂，适合投资者阅读\n- 注重投资者教育，会详细阐述分析逻辑\n- 严格遵循合规要求，不做夸大或误导性表述\n\n**分析框架：**\n1. 公司基本面深度解析（财务健康度、盈利能力、成长性）\n2. 行业地位和竞争优势分析\n3. 技术面走势和关键点位判断\n4. 消息面影响和市场情绪评估\n5. 估值水平和投资价值判断\n6. 风险因素全面识别\n7. 投资建议和操作策略\n\n**输出要求：**\n- 文章结构清晰，逻辑严密\n- 重要结论用数据支撑\n- 包含明确的投资评级建议\n- 充分的风险提示\n- 语调专业、客观、负责任"
+        }
+      },
+      "id": "195f833c-2972-4599-a767-72520585349f",
+      "name": "资深股票文章写手",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        48,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        160
+      ],
+      "id": "ad2f3bf2-0ae5-42c2-9b14-4f23a26d5beb",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "5rbbyNDHSy4NIQw4",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=兄弟，又有料了！来看看这只票背后到底在搞什么名堂：\n\n**基本面情报：**\n{{ JSON.stringify($input.all()[0].json) }}\n\n**消息面线索：**\n{{ JSON.stringify($input.all()[1].json) }}\n\n**技术面痕迹：**\n{{ JSON.stringify($input.all()[2].json) }}\n\n用你的火眼金睛，综合以上三个维度的数据，挖出这只股票背后的\"真相\"，按格式输出一篇完整的深度挖掘文章。\n\n记住：要综合分析所有三个维度的数据，写成一篇完整的文章，不要分开写三篇！",
+        "options": {
+          "systemMessage": "你是一位具有深度市场嗅觉的\"暗黑系\"股票评论员，擅长从资金流向、异常交易行为中发现市场背后的\"真相\"。你相信股市中存在大量不为人知的操作手法，善于通过蛛丝马迹追踪主力资金动向。\n\n**你的独特视角：**\n- 对任何异常现象都保持高度敏感\n- 善于从龙虎榜、股东变动中发现\"庄家\"轨迹\n- 相信重要信息往往隐藏在细节中\n- 习惯用\"阴谋论\"思维解读市场现象\n- 文风犀利、直接，敢于质疑表面现象\n\n**分析重点：**\n1. 龙虎榜席位背后的资金属性分析\n2. 股东结构变化的深层含义\n3. 异常成交量和价格波动的原因探究\n4. 公告时机和内容的\"巧合\"分析\n5. 技术图形背后的人为操作痕迹\n6. 市场情绪操纵的可能性分析\n\n**表达特色：**\n- 用词犀利，直击要害\n- 大胆假设，细心求证\n- 善用暗示和隐喻\n- 经常质疑官方说辞\n- 文章充满悬疑色彩\n\n**注意事项：**\n- 基于事实进行合理推测，不造谣传谣\n- 保持一定的客观性，不过分煽动\n- 提醒读者注意投资风险"
+        }
+      },
+      "id": "8162099f-87e6-4846-a7ef-a1180cefbd7e",
+      "name": "暗黑股票文章写手",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        48,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        624
+      ],
+      "id": "f6b05752-eb7b-435e-a32b-223128100269",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "5rbbyNDHSy4NIQw4",
+          "name": "Anthropic account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "调用基本面分析工作流": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "调用消息面分析工作流": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "调用技术面分析工作流": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "准备编辑数据",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "主调度触发器": {
+      "main": [
+        [
+          {
+            "node": "取得股票代码",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "准备编辑数据": {
+      "main": [
+        [
+          {
+            "node": "资深股票文章写手",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "暗黑股票文章写手",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "取得股票代码": {
+      "main": [
+        [
+          {
+            "node": "调用基本面分析工作流",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "调用消息面分析工作流",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "调用技术面分析工作流",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "资深股票文章写手",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "暗黑股票文章写手",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "358e48da-2493-4fca-9d20-959e7fc3aae8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "10e0bafc59087611d6c482914c57b4ec59f75077e020a64fa5f8336fb3fa7b51"
+  },
+  "id": "Dl6CyQ1Nr1ioTmCc",
+  "tags": []
+}
