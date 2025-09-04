@@ -2,6 +2,8 @@
 class StockApp {
     constructor() {
         this.apiBase = window.location.origin;
+        this.currentTaskId = null;
+        this.currentStockCode = null;
         this.init();
     }
 
@@ -46,6 +48,10 @@ class StockApp {
         
         Handlebars.registerHelper('stringify', function(obj) {
             return JSON.stringify(obj, null, 2);
+        });
+        
+        Handlebars.registerHelper('eq', function(a, b) {
+            return a === b;
         });
     }
 
@@ -105,9 +111,23 @@ class StockApp {
             // 处理数据格式
             const processedData = this.processStockData(data);
             
+            // 保存任务信息
+            if (processedData.task_id) {
+                this.currentTaskId = processedData.task_id;
+                this.currentStockCode = processedData.stock_code;
+            }
+            
             // 渲染股票信息
             stockInfoDiv.innerHTML = this.stockTemplate(processedData);
             stockInfoDiv.className = '';
+            
+            // 绑定刷新按钮事件
+            this.bindRefreshButton();
+            
+            // 如果是处理中状态，启动自动轮询
+            if (processedData.status === 'processing' || processedData.status === 'triggered') {
+                this.startPolling();
+            }
             
         } catch (error) {
             console.error('查询股票信息失败:', error);
@@ -185,6 +205,105 @@ class StockApp {
         }
         
         localStorage.setItem('theme', theme);
+    }
+
+    bindRefreshButton() {
+        // 绑定刷新按钮事件（动态添加的元素）
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.checkAnalysisResult();
+            });
+        }
+    }
+
+    startPolling() {
+        // 启动自动轮询检查结果
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+        
+        let pollCount = 0;
+        const maxPolls = 20; // 最多轮询20次 (约10分钟)
+        
+        this.pollingInterval = setInterval(() => {
+            pollCount++;
+            console.log(`自动检查分析结果 (${pollCount}/${maxPolls})`);
+            
+            this.checkAnalysisResult(true).then(hasResult => {
+                if (hasResult || pollCount >= maxPolls) {
+                    clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                }
+            });
+        }, 30000); // 每30秒检查一次
+    }
+
+    async checkAnalysisResult(isAutoCheck = false) {
+        if (!this.currentStockCode) {
+            if (!isAutoCheck) {
+                alert('没有正在进行的分析任务');
+            }
+            return false;
+        }
+
+        try {
+            if (!isAutoCheck) {
+                // 手动检查时显示加载状态
+                const stockInfoDiv = document.getElementById('stock-info');
+                const loadingHtml = stockInfoDiv.innerHTML.replace(
+                    '🔄 检查分析结果',
+                    '⏳ 检查中...'
+                );
+                stockInfoDiv.innerHTML = loadingHtml;
+            }
+
+            // 重新调用API检查结果
+            const response = await fetch(`${this.apiBase}/api/vercel/stock-analysis?code=${this.currentStockCode}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // 检查是否有分析结果
+            const hasAnalysis = data.analysis && (
+                data.analysis.professional_analysis || 
+                data.analysis.dark_analysis
+            );
+
+            if (hasAnalysis || data.status === 'completed') {
+                // 有结果了，更新显示
+                const processedData = this.processStockData(data);
+                const stockInfoDiv = document.getElementById('stock-info');
+                stockInfoDiv.innerHTML = this.stockTemplate(processedData);
+                return true;
+            } else {
+                // 还没有结果
+                if (!isAutoCheck) {
+                    const stockInfoDiv = document.getElementById('stock-info');
+                    const updatedHtml = stockInfoDiv.innerHTML.replace(
+                        '⏳ 检查中...',
+                        '🔄 检查分析结果'
+                    );
+                    stockInfoDiv.innerHTML = updatedHtml;
+                    this.bindRefreshButton();
+                }
+                return false;
+            }
+
+        } catch (error) {
+            console.error('检查分析结果失败:', error);
+            if (!isAutoCheck) {
+                alert(`检查结果失败: ${error.message}`);
+            }
+            return false;
+        }
     }
 }
 
