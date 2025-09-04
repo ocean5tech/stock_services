@@ -71,7 +71,7 @@ class handler(BaseHTTPRequestHandler):
             return {"error": "Missing stock code parameter"}
         
         try:
-            # 直接调用n8n webhook并等待完成
+            # 触发n8n workflow但不等待完成
             webhook_base_url = "https://ocean5tech.app.n8n.cloud/webhook/stock-master"
             
             # 构建带参数的URL
@@ -81,7 +81,7 @@ class handler(BaseHTTPRequestHandler):
             })
             webhook_url = f"{webhook_base_url}?{params}"
             
-            # 发送GET请求到n8n webhook并等待完成
+            # 发送GET请求触发workflow（短超时）
             req = urllib.request.Request(
                 webhook_url,
                 headers={
@@ -90,18 +90,32 @@ class handler(BaseHTTPRequestHandler):
                 method='GET'
             )
             
-            # 等待n8n workflow完成（增加超时时间）
-            with urllib.request.urlopen(req, timeout=180) as response:  # 3分钟超时
-                response_data = response.read().decode('utf-8')
-                n8n_result = json.loads(response_data)
-                
-                # 直接返回n8n的分析结果
+            try:
+                with urllib.request.urlopen(req, timeout=10) as response:  # 短超时只确认触发
+                    response_data = response.read().decode('utf-8')
+                    trigger_result = json.loads(response_data)
+                    
+                    # 立即返回任务状态，不等待完成
+                    return {
+                        "stock_code": code,
+                        "data_source": "n8n_workflow",
+                        "timestamp": datetime.now().isoformat(),
+                        "status": "processing",
+                        "message": f"股票 {code} 分析已启动",
+                        "note": "请点击下方按钮检查分析结果",
+                        "webhook_url": webhook_url,
+                        "trigger_result": trigger_result
+                    }
+                    
+            except Exception as trigger_error:
+                # 触发可能成功但响应超时
                 return {
                     "stock_code": code,
-                    "data_source": "n8n_workflow",
+                    "data_source": "n8n_workflow", 
                     "timestamp": datetime.now().isoformat(),
-                    "analysis": n8n_result,
-                    "status": "completed",
+                    "status": "triggered",
+                    "message": f"股票 {code} 分析可能已启动",
+                    "note": "由于网络原因无法确认，请稍后检查结果",
                     "webhook_url": webhook_url
                 }
                 

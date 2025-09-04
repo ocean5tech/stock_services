@@ -111,9 +111,15 @@ class StockApp {
             // 处理数据格式
             const processedData = this.processStockData(data);
             
+            // 保存股票代码用于检查结果
+            this.currentStockCode = processedData.stock_code;
+            
             // 渲染股票信息
             stockInfoDiv.innerHTML = this.stockTemplate(processedData);
             stockInfoDiv.className = '';
+            
+            // 绑定检查结果按钮
+            this.bindCheckResultButton();
             
         } catch (error) {
             console.error('查询股票信息失败:', error);
@@ -391,29 +397,71 @@ class StockApp {
         }
     }
 
-    bindNewAnalysisButton() {
-        // 绑定新分析按钮
-        const newAnalysisBtn = document.getElementById('new-analysis-btn');
-        if (newAnalysisBtn) {
-            newAnalysisBtn.addEventListener('click', () => {
-                // 清理当前状态
-                this.currentTaskId = null;
-                this.currentStockCode = null;
-                if (this.pollingInterval) {
-                    clearInterval(this.pollingInterval);
-                    this.pollingInterval = null;
-                }
-                
-                // 清空结果显示
-                const stockInfoDiv = document.getElementById('stock-info');
-                stockInfoDiv.innerHTML = '';
-                stockInfoDiv.className = 'hidden';
-                
-                // 清空输入框焦点
-                const stockInput = document.getElementById('stock-input');
-                stockInput.value = '';
-                stockInput.focus();
+    bindCheckResultButton() {
+        // 绑定检查结果按钮
+        const checkResultBtn = document.getElementById('check-result-btn');
+        if (checkResultBtn) {
+            checkResultBtn.addEventListener('click', () => {
+                this.checkAnalysisResult();
             });
+        }
+    }
+
+    async checkAnalysisResult() {
+        if (!this.currentStockCode) {
+            alert('没有正在进行的分析任务');
+            return;
+        }
+
+        // 显示检查中状态
+        const checkBtn = document.getElementById('check-result-btn');
+        if (checkBtn) {
+            checkBtn.innerHTML = '⏳ 检查中...';
+            checkBtn.disabled = true;
+        }
+
+        try {
+            // 重新调用API获取结果
+            const response = await fetch(`${this.apiBase}/api/vercel/stock-analysis?code=${this.currentStockCode}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // 处理结果
+            const processedData = this.processStockData(data);
+            
+            // 检查是否有真正的分析结果
+            if (processedData.analysis && 
+                (processedData.analysis.professional_analysis || 
+                 processedData.analysis.dark_analysis)) {
+                // 有分析结果，显示文章
+                const stockInfoDiv = document.getElementById('stock-info');
+                stockInfoDiv.innerHTML = this.stockTemplate(processedData);
+            } else {
+                // 还没有结果，恢复按钮状态
+                if (checkBtn) {
+                    checkBtn.innerHTML = '🔍 检查分析结果';
+                    checkBtn.disabled = false;
+                }
+                alert('分析还在进行中，请稍后再试');
+            }
+
+        } catch (error) {
+            console.error('检查分析结果失败:', error);
+            alert(`检查失败: ${error.message}`);
+            
+            // 恢复按钮状态
+            if (checkBtn) {
+                checkBtn.innerHTML = '🔍 检查分析结果';
+                checkBtn.disabled = false;
+            }
         }
     }
 }
