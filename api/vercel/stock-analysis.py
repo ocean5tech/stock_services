@@ -251,40 +251,111 @@ class handler(BaseHTTPRequestHandler):
         print(f"DEBUG: Checking result type: {type(result)}")
         print(f"DEBUG: Result content: {json.dumps(result, ensure_ascii=False, indent=2)[:500]}...")
         
-        if isinstance(result, list) and len(result) >= 1:  # 至少1个输出就算有结果
-            # 检查是否包含分析输出
+        # 支持多种数据格式
+        if isinstance(result, list) and len(result) >= 1:
+            valid_outputs = 0
             for i, item in enumerate(result):
                 print(f"DEBUG: Item {i}: type={type(item)}, keys={list(item.keys()) if isinstance(item, dict) else 'not dict'}")
-                if isinstance(item, dict) and 'output' in item:
-                    output_content = str(item['output'])
-                    print(f"DEBUG: Output length: {len(output_content)}")
-                    if len(output_content) > 50:  # 降低阈值，确保有实际内容
-                        print(f"DEBUG: Found valid output in item {i}")
-                        return True
+                
+                # 检查常见的输出字段
+                if isinstance(item, dict):
+                    # 方式1: 直接包含output字段 (langchain agent输出)
+                    if 'output' in item:
+                        output_content = str(item['output'])
+                        print(f"DEBUG: Found 'output' field, length: {len(output_content)}")
+                        if len(output_content) > 50:
+                            valid_outputs += 1
+                    
+                    # 方式2: 包含text字段 (可能的文本输出)
+                    elif 'text' in item:
+                        text_content = str(item['text'])
+                        print(f"DEBUG: Found 'text' field, length: {len(text_content)}")
+                        if len(text_content) > 50:
+                            valid_outputs += 1
+                    
+                    # 方式3: 整个item就是文本内容
+                    elif len(str(item)) > 100:
+                        print(f"DEBUG: Item itself is text content, length: {len(str(item))}")
+                        valid_outputs += 1
+                        
+                    # 方式4: 检查是否有任何包含实质内容的字段
+                    else:
+                        for key, value in item.items():
+                            if isinstance(value, str) and len(value) > 100:
+                                print(f"DEBUG: Found substantial content in field '{key}', length: {len(value)}")
+                                valid_outputs += 1
+                                break
+                
+                # 如果整个item是字符串且足够长
+                elif isinstance(item, str) and len(item) > 100:
+                    print(f"DEBUG: Item is direct string content, length: {len(item)}")
+                    valid_outputs += 1
+            
+            print(f"DEBUG: Found {valid_outputs} valid outputs")
+            return valid_outputs >= 1  # 至少1个有效输出就认为成功
+        
+        # 如果result是字典，检查是否包含articles数组
+        elif isinstance(result, dict):
+            if 'articles' in result and isinstance(result['articles'], list):
+                print(f"DEBUG: Found articles array with {len(result['articles'])} items")
+                return len(result['articles']) > 0
+        
         print("DEBUG: No valid analysis result found")
         return False
     
     def process_n8n_result(self, result):
         """处理n8n返回的结果，动态处理任意数量的output"""
         if not isinstance(result, list):
+            print(f"DEBUG: Result is not a list, type: {type(result)}")
             return None
             
         articles = []
+        article_titles = ['资深股票文章写手', '暗黑股票文章写手']  # 对应你的两个AI agent
         
         try:
             for i, item in enumerate(result):
-                if isinstance(item, dict) and 'output' in item:
-                    output_content = item['output']
-                    if output_content and len(str(output_content)) > 50:  # 确保有实际内容
-                        articles.append({
-                            'id': f'article_{i+1}',
-                            'title': f'分析文章 {i+1}',
-                            'content': output_content,
-                            'index': i+1
-                        })
+                content = None
+                title = article_titles[i] if i < len(article_titles) else f'分析师 {i+1}'
+                
+                print(f"DEBUG: Processing item {i} for article")
+                
+                if isinstance(item, dict):
+                    # 方式1: 标准output字段 (langchain agent)
+                    if 'output' in item:
+                        content = item['output']
+                        print(f"DEBUG: Using 'output' field from item {i}")
+                    # 方式2: text字段
+                    elif 'text' in item:
+                        content = item['text']
+                        print(f"DEBUG: Using 'text' field from item {i}")
+                    # 方式3: 寻找包含实质内容的字段
+                    else:
+                        for key, value in item.items():
+                            if isinstance(value, str) and len(value) > 100:
+                                content = value
+                                print(f"DEBUG: Using '{key}' field from item {i}")
+                                break
+                
+                elif isinstance(item, str):
+                    # 直接是字符串内容
+                    content = item
+                    print(f"DEBUG: Item {i} is direct string content")
+                
+                # 确保内容有效且足够长
+                if content and len(str(content)) > 50:
+                    articles.append({
+                        'id': f'article_{i+1}',
+                        'title': f'{title} - 专业分析报告',
+                        'content': content,
+                        'index': i+1
+                    })
+                    print(f"DEBUG: Added article {i+1} with {len(str(content))} characters")
+                else:
+                    print(f"DEBUG: Skipping item {i}, insufficient content")
                         
-        except (KeyError, IndexError, TypeError) as e:
-            print(f"Error processing n8n result: {e}")
+        except Exception as e:
+            print(f"DEBUG: Error processing n8n result: {e}")
             return None
-            
+        
+        print(f"DEBUG: Successfully processed {len(articles)} articles")
         return {'articles': articles} if articles else None
