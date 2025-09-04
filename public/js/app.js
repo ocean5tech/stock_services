@@ -14,8 +14,8 @@ class StockApp {
         // 绑定事件
         this.bindEvents();
         
-        // 检查API状态
-        this.checkApiStatus();
+        // 不再自动检查API状态，避免触发不必要的workflow
+        // this.checkApiStatus();
         
         // 初始化主题
         this.initTheme();
