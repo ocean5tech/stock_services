@@ -129,6 +129,19 @@ class handler(BaseHTTPRequestHandler):
                 
         except urllib.error.HTTPError as e:
             error_msg = f"HTTP Error {e.code}: {e.reason}"
+            
+            # 特殊处理速率限制错误
+            if e.code == 429:
+                return {
+                    "stock_code": code,
+                    "error": "API速率限制：请求过于频繁，请稍后重试",
+                    "error_type": "rate_limit",
+                    "data_source": "n8n_workflow_error",
+                    "timestamp": datetime.now().isoformat(),
+                    "status": "rate_limited",
+                    "retry_after": "建议等待1-2分钟后重试"
+                }
+            
             return {
                 "stock_code": code,
                 "error": error_msg,
