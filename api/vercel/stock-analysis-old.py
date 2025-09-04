@@ -28,16 +28,22 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.end_headers()
             
-            # API路由处理 - 统一处理所有请求
-            if 'code' in query_params:
+            # API路由处理
+            if path.endswith('/api/vercel/stock-analysis') or path.endswith('/api/vercel/stock-analysis.py'):
                 response = self.handle_stock_info(query_params)
+            elif '/api/vercel/stock-analysis/' in path:
+                # 提取股票代码
+                stock_code = path.split('/')[-1]
+                response = self.handle_stock_analysis(stock_code, query_params)
             else:
                 response = {
                     "status": "API is running",
                     "message": "Stock Analysis API for Vercel",
                     "timestamp": datetime.now().isoformat(),
-                    "usage": "Add ?code=STOCK_CODE to get stock info",
-                    "example": "/api/vercel/stock-analysis?code=000001"
+                    "available_endpoints": {
+                        "stock_info": "/api/vercel/stock-analysis?code=STOCK_CODE",
+                        "stock_analysis": "/api/vercel/stock-analysis/STOCK_CODE"
+                    }
                 }
             
             # 返回JSON响应
@@ -46,12 +52,10 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             error_response = {
                 "error": str(e),
-                "timestamp": datetime.now().isoformat(),
-                "path": getattr(self, 'path', 'unknown')
+                "timestamp": datetime.now().isoformat()
             }
             self.wfile.write(json.dumps(error_response).encode('utf-8'))
     
@@ -139,3 +143,26 @@ class handler(BaseHTTPRequestHandler):
             "timestamp": datetime.now().isoformat(),
             "note": "This is demo data. In production, connect to real stock data API."
         }
+    
+    def handle_stock_analysis(self, stock_code, query_params):
+        """处理股票分析请求"""
+        analysis_type = query_params.get('type', ['basic'])[0]
+        
+        # 模拟分析数据
+        analysis_data = {
+            "stock_code": stock_code,
+            "analysis_type": analysis_type,
+            "timestamp": datetime.now().isoformat(),
+            "analysis_result": {
+                "recommendation": "中性",
+                "target_price": "12.50",
+                "risk_level": "中等",
+                "key_metrics": {
+                    "pe_ratio": 5.8,
+                    "pb_ratio": 0.7,
+                    "roe": 12.5
+                }
+            }
+        }
+        
+        return analysis_data

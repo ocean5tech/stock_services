@@ -1,11 +1,9 @@
 {
   "version": 2,
-  "name": "stock-services-vercel",
   "builds": [
     {
-      "src": "api/*.py",
-      "use": "@vercel/python",
-      "config": { "maxLambdaSize": "15mb" }
+      "src": "api/vercel/stock-analysis.py",
+      "use": "@vercel/python"
     },
     {
       "src": "public/**",
@@ -14,20 +12,12 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "src": "/api/vercel/stock-analysis",
+      "dest": "/api/vercel/stock-analysis.py"
     },
     {
       "src": "/(.*)",
       "dest": "/public/$1"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "/var/task"
-  },
-  "functions": {
-    "api/*.py": {
-      "runtime": "python3.9"
-    }
-  }
+  ]
 }
