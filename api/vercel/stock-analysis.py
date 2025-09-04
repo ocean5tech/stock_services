@@ -95,21 +95,34 @@ class handler(BaseHTTPRequestHandler):
             )
             
             try:
-                with urllib.request.urlopen(req, timeout=10) as response:  # 短超时只确认触发
+                with urllib.request.urlopen(req, timeout=60) as response:  # 增加超时让workflow有时间完成
                     response_data = response.read().decode('utf-8')
                     trigger_result = json.loads(response_data)
                     
-                    # 立即返回任务状态，不等待完成
-                    return {
-                        "stock_code": code,
-                        "data_source": "n8n_workflow",
-                        "timestamp": datetime.now().isoformat(),
-                        "status": "processing",
-                        "message": f"股票 {code} 分析已启动",
-                        "note": "请点击下方按钮检查分析结果",
-                        "webhook_url": webhook_url,
-                        "trigger_result": trigger_result
-                    }
+                    # 检查是否返回了实际的分析结果
+                    if self.is_analysis_result(trigger_result):
+                        # 如果返回了分析结果，直接处理并返回
+                        processed_analysis = self.process_n8n_result(trigger_result)
+                        return {
+                            "stock_code": code,
+                            "data_source": "n8n_workflow",
+                            "timestamp": datetime.now().isoformat(),
+                            "analysis": processed_analysis,
+                            "status": "completed",
+                            "webhook_url": webhook_url
+                        }
+                    else:
+                        # 立即返回任务状态，等待后续检查
+                        return {
+                            "stock_code": code,
+                            "data_source": "n8n_workflow",
+                            "timestamp": datetime.now().isoformat(),
+                            "status": "processing",
+                            "message": f"股票 {code} 分析已启动",
+                            "note": "请点击下方按钮检查分析结果",
+                            "webhook_url": webhook_url,
+                            "trigger_result": trigger_result
+                        }
                     
             except Exception as trigger_error:
                 # 触发可能成功但响应超时
@@ -180,3 +193,33 @@ class handler(BaseHTTPRequestHandler):
             "message": "结果检查功能需要配合数据库实现",
             "note": "当前版本无法检查之前的结果，请重新触发分析"
         }
+    
+    def is_analysis_result(self, result):
+        """判断是否是真正的分析结果"""
+        if isinstance(result, list) and len(result) >= 2:
+            # 检查是否包含分析输出
+            for item in result:
+                if isinstance(item, dict) and 'output' in item and len(str(item['output'])) > 100:
+                    return True
+        return False
+    
+    def process_n8n_result(self, result):
+        """处理n8n返回的结果，转换为前端期望的格式"""
+        if not isinstance(result, list):
+            return None
+            
+        processed = {}
+        
+        try:
+            # 假设第一个是资深股票文章写手，第二个是暗黑股票文章写手
+            if len(result) >= 1 and 'output' in result[0]:
+                processed['professional_analysis'] = result[0]['output']
+            
+            if len(result) >= 2 and 'output' in result[1]:
+                processed['dark_analysis'] = result[1]['output']
+                
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"Error processing n8n result: {e}")
+            return None
+            
+        return processed if processed else None
