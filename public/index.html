@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票服务系统 - Stock Services</title>
+    <link rel="stylesheet" href="./dist/output.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/handlebars@4.7.8/dist/handlebars.min.js"></script>
+</head>
+<body class="bg-bg-light min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-gray-900">股票服务系统</h1>
+                    <span class="ml-2 px-2 py-1 text-xs bg-stock-blue text-white rounded">Vercel</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="theme-toggle" class="btn-secondary">
+                        🌙 暗色模式
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <!-- 股票搜索区域 -->
+        <div class="stock-card mb-8">
+            <h2 class="text-lg font-semibold mb-4">股票查询</h2>
+            <div class="flex gap-4">
+                <input 
+                    type="text" 
+                    id="stock-input" 
+                    placeholder="输入股票代码 (如: 000001)" 
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-stock-blue focus:border-stock-blue"
+                />
+                <button id="search-btn" class="btn-primary">
+                    查询股票
+                </button>
+            </div>
+        </div>
+
+        <!-- 股票信息展示区域 -->
+        <div id="stock-info" class="hidden">
+            <!-- 股票信息模板将在这里渲染 -->
+        </div>
+
+        <!-- API状态区域 -->
+        <div class="stock-card">
+            <h3 class="text-lg font-semibold mb-4">API状态</h3>
+            <div id="api-status" class="space-y-2">
+                <div class="flex items-center">
+                    <div class="loading-spinner mr-2"></div>
+                    <span>正在检查API状态...</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Handlebars模板 -->
+    <script type="text/x-handlebars-template" id="stock-template">
+        <div class="stock-card">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold">{{stock_info.name}} ({{stock_code}})</h2>
+                    <p class="text-gray-600">{{stock_info.industry}}</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold {{#if isPositive}}stock-price-up{{else}}stock-price-down{{/if}}">
+                        ¥{{stock_info.price}}
+                    </div>
+                    <div class="{{#if isPositive}}stock-price-up{{else}}stock-price-down{{/if}}">
+                        {{#if isPositive}}+{{/if}}{{stock_info.change}} ({{stock_info.change_percent}}%)
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <div class="text-sm text-gray-600">总市值</div>
+                    <div class="font-semibold">{{stock_info.market_cap}}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-600">数据源</div>
+                    <div class="font-semibold">{{data_source}}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-600">更新时间</div>
+                    <div class="font-semibold">{{formatTime timestamp}}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-600">状态</div>
+                    <div class="font-semibold text-stock-green">在线</div>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-handlebars-template" id="api-status-template">
+        {{#each endpoints}}
+        <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+            <span>{{name}}</span>
+            <span class="{{#if online}}text-stock-green{{else}}text-stock-red{{/if}}">
+                {{#if online}}● 在线{{else}}● 离线{{/if}}
+            </span>
+        </div>
+        {{/each}}
+    </script>
+
+    <script src="./js/app.js"></script>
+</body>
+</html>

@@ -8,7 +8,17 @@ from fastapi.middleware.cors import CORSMiddleware
 import akshare as ak
 from datetime import datetime, timedelta
 
-app = FastAPI(title="全面股票分析API", description="为n8n工作流提供完整的股票分析数据")
+app = FastAPI(
+    title="Stock Analysis API", 
+    description="Complete stock analysis API service for n8n workflows",
+    version="2.0.0",
+    docs_url=None,  # 禁用默认docs，使用自定义版本
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    servers=[
+        {"url": "http://35.77.54.203:3003", "description": "Production server"}
+    ]
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -374,6 +384,49 @@ async def get_industry_news(stock_code: str):
         "industry_news": [],
         "note": "行业新闻数据接口开发中"
     }
+
+# 处理URL编码的openapi.json请求
+from urllib.parse import unquote
+from fastapi.responses import JSONResponse, HTMLResponse
+
+@app.get("/http%3A//35.77.54.203%3A3003/openapi.json")
+async def openapi_encoded():
+    """处理浏览器URL编码的openapi.json请求"""
+    return JSONResponse(app.openapi())
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    """自定义Swagger UI页面，解决URL编码问题"""
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <link type="text/css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css">
+    <link rel="shortcut icon" href="https://fastapi.tiangolo.com/img/favicon.png">
+    <title>Stock Analysis API - Swagger UI</title>
+    </head>
+    <body>
+    <div id="swagger-ui">
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+    <script>
+    const ui = SwaggerUIBundle({
+        url: '/openapi.json',
+        dom_id: '#swagger-ui',
+        layout: 'BaseLayout',
+        deepLinking: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        oauth2RedirectUrl: window.location.origin + '/docs/oauth2-redirect',
+        presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+    })
+    </script>
+    </body>
+    </html>
+    """)
 
 # 健康检查端点
 @app.get("/")

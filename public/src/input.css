@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-stock bg-bg-light text-gray-900;
+  }
+}
+
+@layer components {
+  .stock-card {
+    @apply bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow;
+  }
+  
+  .stock-price-up {
+    @apply text-stock-green;
+  }
+  
+  .stock-price-down {
+    @apply text-stock-red;
+  }
+  
+  .btn-primary {
+    @apply bg-stock-blue text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin rounded-full h-6 w-6 border-b-2 border-stock-blue;
+  }
+}
