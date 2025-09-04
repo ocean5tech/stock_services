@@ -71,12 +71,11 @@ class StockApp {
         `;
 
         try {
-            // 尝试调用Vercel API
-            let response = await fetch(`${this.apiBase}/api/vercel/stock-analysis?code=${stockCode}`);
+            // 调用Vercel API
+            const response = await fetch(`${this.apiBase}/api/vercel/stock-analysis?code=${stockCode}`);
             
             if (!response.ok) {
-                // 如果Vercel API不可用，回退到本地API
-                response = await fetch(`${this.apiBase}:3003/api/stock-info/${stockCode}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const data = await response.json();
@@ -123,9 +122,7 @@ class StockApp {
 
     async checkApiStatus() {
         const apiEndpoints = [
-            { name: 'Vercel无服务器API', url: '/api/vercel/stock-analysis?code=000001', online: false },
-            { name: '本地股票分析API (3003)', url: ':3003/api/stock-info/000001', online: false },
-            { name: '简化API (3004)', url: ':3004/health', online: false }
+            { name: 'Vercel股票分析API', url: '/api/vercel/stock-analysis?code=000001', online: false }
         ];
 
         for (const endpoint of apiEndpoints) {
@@ -136,6 +133,7 @@ class StockApp {
                 });
                 endpoint.online = response.ok;
             } catch (error) {
+                console.log(`API检查失败: ${endpoint.name}`, error);
                 endpoint.online = false;
             }
         }

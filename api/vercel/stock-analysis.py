@@ -3,16 +3,13 @@
 """
 Vercel无服务器函数 - 股票分析API
 Stock Analysis API for Vercel Serverless Functions
+轻量级版本 - 不依赖akshare，使用模拟数据
 """
 from http.server import BaseHTTPRequestHandler
 import json
-import sys
-import os
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
-
-# 添加路径以导入akshare (如果需要的话)
-# 注意：Vercel上可能需要使用轻量级的数据源替代akshare
+import random
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -32,15 +29,17 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             
             # API路由处理
-            if path == '/api/vercel/stock-analysis':
+            if path.endswith('/api/vercel/stock-analysis') or path.endswith('/api/vercel/stock-analysis.py'):
                 response = self.handle_stock_info(query_params)
-            elif path.startswith('/api/vercel/stock-analysis/'):
+            elif '/api/vercel/stock-analysis/' in path:
                 # 提取股票代码
                 stock_code = path.split('/')[-1]
                 response = self.handle_stock_analysis(stock_code, query_params)
             else:
                 response = {
-                    "error": "API endpoint not found",
+                    "status": "API is running",
+                    "message": "Stock Analysis API for Vercel",
+                    "timestamp": datetime.now().isoformat(),
                     "available_endpoints": {
                         "stock_info": "/api/vercel/stock-analysis?code=STOCK_CODE",
                         "stock_analysis": "/api/vercel/stock-analysis/STOCK_CODE"
@@ -74,40 +73,75 @@ class handler(BaseHTTPRequestHandler):
         if not code:
             return {"error": "Missing stock code parameter"}
         
-        # 这里使用模拟数据，实际部署时可以接入真实数据源
+        # 增强版模拟数据，更丰富的股票信息
         mock_data = {
             "000001": {
                 "name": "平安银行",
-                "price": 11.75,
-                "change": -0.23,
-                "change_percent": -1.92,
+                "price": round(11.75 + random.uniform(-0.5, 0.5), 2),
+                "change": round(random.uniform(-0.5, 0.5), 2),
+                "change_percent": round(random.uniform(-3, 3), 2),
                 "market_cap": "2280亿",
-                "industry": "银行"
+                "industry": "银行",
+                "volume": random.randint(100000, 500000),
+                "high": 12.1,
+                "low": 11.2,
+                "pe_ratio": 5.8,
+                "pb_ratio": 0.7
             },
             "000002": {
                 "name": "万科A",
-                "price": 8.45,
-                "change": 0.12,
-                "change_percent": 1.44,
+                "price": round(8.45 + random.uniform(-0.3, 0.3), 2),
+                "change": round(random.uniform(-0.3, 0.3), 2),
+                "change_percent": round(random.uniform(-2, 2), 2),
                 "market_cap": "950亿",
-                "industry": "房地产"
+                "industry": "房地产",
+                "volume": random.randint(80000, 300000),
+                "high": 8.8,
+                "low": 8.1,
+                "pe_ratio": 15.2,
+                "pb_ratio": 1.1
+            },
+            "000858": {
+                "name": "五粮液",
+                "price": round(158.50 + random.uniform(-2, 2), 2),
+                "change": round(random.uniform(-2, 2), 2),
+                "change_percent": round(random.uniform(-1.5, 1.5), 2),
+                "market_cap": "6180亿",
+                "industry": "食品饮料",
+                "volume": random.randint(50000, 200000),
+                "high": 162.1,
+                "low": 155.3,
+                "pe_ratio": 28.5,
+                "pb_ratio": 4.2
             }
         }
         
-        stock_info = mock_data.get(code, {
-            "name": f"股票{code}",
-            "price": 0,
-            "change": 0,
-            "change_percent": 0,
-            "market_cap": "未知",
-            "industry": "未知"
-        })
+        # 为未知股票生成随机数据
+        if code not in mock_data:
+            base_price = random.uniform(5, 200)
+            change_val = random.uniform(-base_price*0.1, base_price*0.1)
+            stock_info = {
+                "name": f"股票{code}",
+                "price": round(base_price, 2),
+                "change": round(change_val, 2),
+                "change_percent": round((change_val/base_price)*100, 2),
+                "market_cap": f"{random.randint(10, 5000)}亿",
+                "industry": random.choice(["科技", "金融", "医药", "消费", "制造", "能源"]),
+                "volume": random.randint(10000, 1000000),
+                "high": round(base_price * 1.05, 2),
+                "low": round(base_price * 0.95, 2),
+                "pe_ratio": round(random.uniform(5, 50), 1),
+                "pb_ratio": round(random.uniform(0.5, 5), 1)
+            }
+        else:
+            stock_info = mock_data[code]
         
         return {
             "stock_code": code,
             "stock_info": stock_info,
             "data_source": "vercel_serverless",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "note": "This is demo data. In production, connect to real stock data API."
         }
     
     def handle_stock_analysis(self, stock_code, query_params):
