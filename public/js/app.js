@@ -148,10 +148,20 @@ class StockApp {
             stock_code: data.stock_code,
             data_source: data.data_source || 'unknown',
             timestamp: data.timestamp || new Date().toISOString(),
-            status: data.status === 'success',
+            status: data.status || 'processing',
             analysis: data.analysis || null,
-            error: data.error || null
+            error: data.error || null,
+            task_id: data.task_id || null
         };
+        
+        // 检查analysis是否只是workflow启动确认
+        if (processed.analysis && processed.analysis.message === "Workflow was started") {
+            // 这只是启动确认，不是真正的分析结果
+            processed.status = 'processing';
+            processed.analysis = null;
+            processed.message = "股票分析任务已启动";
+            processed.estimated_time = "预计需要2-3分钟完成分析";
+        }
         
         return processed;
     }
