@@ -124,10 +124,10 @@ class StockApp {
             // 绑定刷新按钮事件
             this.bindRefreshButton();
             
-            // 如果是处理中状态，启动自动轮询
-            if (processedData.status === 'processing' || processedData.status === 'triggered') {
-                this.startPolling();
-            }
+            // 不再自动启动轮询，完全由用户手动控制
+            // if (processedData.status === 'processing' || processedData.status === 'triggered') {
+            //     this.startPolling();
+            // }
             
         } catch (error) {
             console.error('查询股票信息失败:', error);
@@ -228,15 +228,20 @@ class StockApp {
     }
 
     startPolling() {
-        // 启动自动轮询检查结果 - 限制重试次数
+        // 已禁用自动轮询 - 完全由用户手动控制
+        console.log('⚠️ 自动轮询已禁用，请使用手动检查按钮');
+        return;
+        
+        // 以下代码已注释掉避免自动执行
+        /*
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
         }
         
         let pollCount = 0;
         let failureCount = 0;
-        const maxPolls = 8; // 减少到8次 (约4分钟)
-        const maxFailures = 1; // 失败1次就立即停止
+        const maxPolls = 8;
+        const maxFailures = 1;
         
         console.log(`开始自动检查，最多检查${maxPolls}次，允许${maxFailures}次失败`);
         
@@ -248,14 +253,12 @@ class StockApp {
                 const hasResult = await this.checkAnalysisResult(true);
                 
                 if (hasResult) {
-                    // 成功获得结果，停止轮询
                     console.log('✅ 获得分析结果，停止轮询');
                     clearInterval(this.pollingInterval);
                     this.pollingInterval = null;
                     return;
                 }
                 
-                // 重置失败计数
                 failureCount = 0;
                 
             } catch (error) {
@@ -271,14 +274,14 @@ class StockApp {
                 }
             }
             
-            // 达到最大轮询次数
             if (pollCount >= maxPolls) {
                 console.log('⏰ 达到最大检查次数，停止轮询');
                 this.showPollingTimeout();
                 clearInterval(this.pollingInterval);
                 this.pollingInterval = null;
             }
-        }, 30000); // 每30秒检查一次
+        }, 30000);
+        */
     }
 
     async checkAnalysisResult(isAutoCheck = false) {
