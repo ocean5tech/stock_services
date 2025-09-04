@@ -71,29 +71,26 @@ class handler(BaseHTTPRequestHandler):
             return {"error": "Missing stock code parameter"}
         
         try:
-            # 调用n8n webhook
-            webhook_url = "https://ocean5tech.app.n8n.cloud/webhook-test/stock-master"
+            # 调用n8n webhook (使用GET方式)
+            webhook_base_url = "https://ocean5tech.app.n8n.cloud/webhook/stock-master"
             
-            # 准备请求数据
-            data = {
-                "stock_code": code,
-                "timestamp": datetime.now().isoformat()
-            }
+            # 构建带参数的URL
+            params = urlparse_lib.urlencode({
+                'code': code,
+                'timestamp': datetime.now().isoformat()
+            })
+            webhook_url = f"{webhook_base_url}?{params}"
             
-            # 发送POST请求到n8n webhook
-            json_data = json.dumps(data).encode('utf-8')
-            
+            # 发送GET请求到n8n webhook
             req = urllib.request.Request(
                 webhook_url,
-                data=json_data,
                 headers={
-                    'Content-Type': 'application/json',
                     'User-Agent': 'Stock-Services/1.0'
                 },
-                method='POST'
+                method='GET'
             )
             
-            with urllib.request.urlopen(req, timeout=30) as response:
+            with urllib.request.urlopen(req, timeout=45) as response:
                 response_data = response.read().decode('utf-8')
                 n8n_result = json.loads(response_data)
                 
@@ -103,7 +100,8 @@ class handler(BaseHTTPRequestHandler):
                     "data_source": "n8n_workflow",
                     "timestamp": datetime.now().isoformat(),
                     "analysis": n8n_result,
-                    "status": "success"
+                    "status": "success",
+                    "webhook_url": webhook_url  # 用于调试
                 }
                 
         except urllib.error.HTTPError as e:
