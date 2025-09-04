@@ -421,8 +421,8 @@ class StockApp {
         }
 
         try {
-            // 重新调用API获取结果
-            const response = await fetch(`${this.apiBase}/api/vercel/stock-analysis?code=${this.currentStockCode}`);
+            // 调用专门的结果检查API，不会触发新的workflow
+            const response = await fetch(`${this.apiBase}/api/vercel/stock-analysis?code=${this.currentStockCode}&check_result=1`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);

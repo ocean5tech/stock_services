@@ -29,15 +29,19 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.end_headers()
             
-            # API路由处理 - 统一处理所有请求
+            # API路由处理 - 区分触发和检查
             if 'code' in query_params:
-                response = self.handle_stock_info(query_params)
+                # 检查是否是结果检查请求
+                if 'check_result' in query_params:
+                    response = self.handle_check_result(query_params)
+                else:
+                    response = self.handle_stock_info(query_params)
             else:
                 response = {
                     "status": "API is running",
                     "message": "Stock Analysis API for Vercel",
                     "timestamp": datetime.now().isoformat(),
-                    "usage": "Add ?code=STOCK_CODE to get stock info",
+                    "usage": "Add ?code=STOCK_CODE to trigger analysis, ?code=XXX&check_result=1 to check results",
                     "example": "/api/vercel/stock-analysis?code=000001"
                 }
             
@@ -159,3 +163,20 @@ class handler(BaseHTTPRequestHandler):
                 "timestamp": datetime.now().isoformat(),
                 "status": "error"
             }
+    
+    def handle_check_result(self, query_params):
+        """检查分析结果 - 不触发新的workflow"""
+        code = query_params.get('code', [''])[0]
+        if not code:
+            return {"error": "Missing stock code parameter"}
+        
+        # 这里应该从某个存储中检查结果，现在返回模拟数据
+        # 实际实现中可能需要数据库或缓存来存储workflow结果
+        return {
+            "stock_code": code,
+            "data_source": "result_check",
+            "timestamp": datetime.now().isoformat(),
+            "status": "checking",
+            "message": "结果检查功能需要配合数据库实现",
+            "note": "当前版本无法检查之前的结果，请重新触发分析"
+        }
