@@ -66,39 +66,58 @@
     <!-- Handlebars模板 -->
     <script type="text/x-handlebars-template" id="stock-template">
         <div class="stock-card">
-            <div class="flex justify-between items-start mb-4">
+            <!-- 股票基本信息 -->
+            <div class="flex justify-between items-start mb-6">
                 <div>
-                    <h2 class="text-2xl font-bold">{{stock_info.name}} ({{stock_code}})</h2>
-                    <p class="text-gray-600">{{stock_info.industry}}</p>
+                    <h2 class="text-2xl font-bold">{{stock_code}} 专业股票分析</h2>
+                    <p class="text-gray-600">数据源: {{data_source}} | {{formatTime timestamp}}</p>
                 </div>
                 <div class="text-right">
-                    <div class="text-2xl font-bold {{#if isPositive}}stock-price-up{{else}}stock-price-down{{/if}}">
-                        ¥{{stock_info.price}}
-                    </div>
-                    <div class="{{#if isPositive}}stock-price-up{{else}}stock-price-down{{/if}}">
-                        {{#if isPositive}}+{{/if}}{{stock_info.change}} ({{stock_info.change_percent}}%)
+                    <div class="text-lg font-semibold {{#if status}}text-stock-green{{else}}text-stock-red{{/if}}">
+                        {{#if status}}分析完成{{else}}分析失败{{/if}}
                     </div>
                 </div>
             </div>
-            
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                    <div class="text-sm text-gray-600">总市值</div>
-                    <div class="font-semibold">{{stock_info.market_cap}}</div>
+
+            {{#if analysis}}
+            <!-- 专业分析文章区域 -->
+            <div class="space-y-6">
+                {{#if analysis.professional_analysis}}
+                <div class="border-l-4 border-blue-500 pl-4">
+                    <h3 class="text-xl font-bold text-blue-600 mb-3">📊 资深股票文章写手分析</h3>
+                    <div class="prose max-w-none text-gray-800 leading-relaxed">
+                        {{formatAnalysis analysis.professional_analysis}}
+                    </div>
                 </div>
-                <div>
-                    <div class="text-sm text-gray-600">数据源</div>
-                    <div class="font-semibold">{{data_source}}</div>
+                {{/if}}
+
+                {{#if analysis.dark_analysis}}
+                <div class="border-l-4 border-red-500 pl-4">
+                    <h3 class="text-xl font-bold text-red-600 mb-3">⚡ 暗黑股票文章写手分析</h3>
+                    <div class="prose max-w-none text-gray-800 leading-relaxed">
+                        {{formatAnalysis analysis.dark_analysis}}
+                    </div>
                 </div>
-                <div>
-                    <div class="text-sm text-gray-600">更新时间</div>
-                    <div class="font-semibold">{{formatTime timestamp}}</div>
+                {{/if}}
+
+                {{#unless analysis.professional_analysis}}{{#unless analysis.dark_analysis}}
+                <div class="text-center py-8">
+                    <p class="text-gray-600">正在处理分析结果，请稍后...</p>
+                    <div class="mt-4">
+                        <pre class="text-left text-sm bg-gray-100 p-4 rounded overflow-auto">{{stringify analysis}}</pre>
+                    </div>
                 </div>
-                <div>
-                    <div class="text-sm text-gray-600">状态</div>
-                    <div class="font-semibold text-stock-green">在线</div>
-                </div>
+                {{/unless}}{{/unless}}
             </div>
+            {{else}}
+            <!-- 错误信息显示 -->
+            {{#if error}}
+            <div class="bg-red-50 border border-red-200 rounded p-4">
+                <h3 class="text-red-600 font-semibold mb-2">分析失败</h3>
+                <p class="text-red-700">{{error}}</p>
+            </div>
+            {{/if}}
+            {{/if}}
         </div>
     </script>
 

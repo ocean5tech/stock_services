@@ -32,6 +32,21 @@ class StockApp {
         Handlebars.registerHelper('formatTime', function(timestamp) {
             return new Date(timestamp).toLocaleString('zh-CN');
         });
+        
+        Handlebars.registerHelper('formatAnalysis', function(text) {
+            if (!text) return '';
+            // 将文本转换为HTML，保持段落格式
+            return new Handlebars.SafeString(
+                text.replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>')
+                    .replace(/^/, '<p>')
+                    .replace(/$/, '</p>')
+            );
+        });
+        
+        Handlebars.registerHelper('stringify', function(obj) {
+            return JSON.stringify(obj, null, 2);
+        });
     }
 
     bindEvents() {
@@ -64,9 +79,12 @@ class StockApp {
         const stockInfoDiv = document.getElementById('stock-info');
         stockInfoDiv.className = 'stock-card';
         stockInfoDiv.innerHTML = `
-            <div class="flex items-center justify-center py-8">
+            <div class="flex items-center justify-center py-12">
                 <div class="loading-spinner mr-2"></div>
-                <span>正在查询股票信息...</span>
+                <div>
+                    <p class="font-semibold">正在分析股票 ${stockCode}...</p>
+                    <p class="text-sm text-gray-600 mt-1">调用专业分析流程，预计需要20-30秒</p>
+                </div>
             </div>
         `;
 
@@ -105,17 +123,15 @@ class StockApp {
     }
 
     processStockData(data) {
-        // 统一数据格式
+        // 处理n8n返回的分析数据格式
         const processed = {
             stock_code: data.stock_code,
             data_source: data.data_source || 'unknown',
             timestamp: data.timestamp || new Date().toISOString(),
-            stock_info: data.stock_info || {}
+            status: data.status === 'success',
+            analysis: data.analysis || null,
+            error: data.error || null
         };
-        
-        // 计算涨跌状态
-        const change = processed.stock_info.change || 0;
-        processed.isPositive = change >= 0;
         
         return processed;
     }
