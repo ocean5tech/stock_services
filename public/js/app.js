@@ -218,24 +218,56 @@ class StockApp {
     }
 
     startPolling() {
-        // 启动自动轮询检查结果
+        // 启动自动轮询检查结果 - 限制重试次数
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
         }
         
         let pollCount = 0;
-        const maxPolls = 20; // 最多轮询20次 (约10分钟)
+        let failureCount = 0;
+        const maxPolls = 8; // 减少到8次 (约4分钟)
+        const maxFailures = 3; // 最多允许3次失败就停止
         
-        this.pollingInterval = setInterval(() => {
+        console.log(`开始自动检查，最多检查${maxPolls}次，允许${maxFailures}次失败`);
+        
+        this.pollingInterval = setInterval(async () => {
             pollCount++;
             console.log(`自动检查分析结果 (${pollCount}/${maxPolls})`);
             
-            this.checkAnalysisResult(true).then(hasResult => {
-                if (hasResult || pollCount >= maxPolls) {
+            try {
+                const hasResult = await this.checkAnalysisResult(true);
+                
+                if (hasResult) {
+                    // 成功获得结果，停止轮询
+                    console.log('✅ 获得分析结果，停止轮询');
                     clearInterval(this.pollingInterval);
                     this.pollingInterval = null;
+                    return;
                 }
-            });
+                
+                // 重置失败计数
+                failureCount = 0;
+                
+            } catch (error) {
+                failureCount++;
+                console.error(`检查失败 (${failureCount}/${maxFailures}):`, error);
+                
+                if (failureCount >= maxFailures) {
+                    console.log('❌ 失败次数过多，停止自动检查');
+                    this.showPollingFailure('检查失败次数过多，请手动重试或联系支持');
+                    clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                    return;
+                }
+            }
+            
+            // 达到最大轮询次数
+            if (pollCount >= maxPolls) {
+                console.log('⏰ 达到最大检查次数，停止轮询');
+                this.showPollingTimeout();
+                clearInterval(this.pollingInterval);
+                this.pollingInterval = null;
+            }
         }, 30000); // 每30秒检查一次
     }
 
@@ -303,6 +335,98 @@ class StockApp {
                 alert(`检查结果失败: ${error.message}`);
             }
             return false;
+        }
+    }
+
+    showPollingTimeout() {
+        // 显示轮询超时信息
+        const stockInfoDiv = document.getElementById('stock-info');
+        if (stockInfoDiv) {
+            const timeoutHtml = `
+                <div class="stock-card">
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-4">⏰</div>
+                        <h3 class="text-xl font-semibold text-orange-600 mb-4">分析时间较长</h3>
+                        <p class="text-gray-600 mb-4">已等待约4分钟，n8n workflow可能需要更多时间完成</p>
+                        <p class="text-sm text-gray-500 mb-6">任务ID: ${this.currentTaskId || 'N/A'}</p>
+                        
+                        <div class="space-y-3">
+                            <button id="refresh-btn" class="btn-primary">
+                                🔄 手动检查结果
+                            </button>
+                            <button id="new-analysis-btn" class="btn-secondary">
+                                🆕 开始新的分析
+                            </button>
+                        </div>
+                        
+                        <div class="mt-4 text-xs text-gray-400">
+                            💡 提示: 已停止自动检查以节省token
+                        </div>
+                    </div>
+                </div>
+            `;
+            stockInfoDiv.innerHTML = timeoutHtml;
+            this.bindRefreshButton();
+            this.bindNewAnalysisButton();
+        }
+    }
+
+    showPollingFailure(message) {
+        // 显示轮询失败信息
+        const stockInfoDiv = document.getElementById('stock-info');
+        if (stockInfoDiv) {
+            const failureHtml = `
+                <div class="stock-card">
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-4">❌</div>
+                        <h3 class="text-xl font-semibold text-red-600 mb-4">检查失败</h3>
+                        <p class="text-gray-600 mb-4">${message}</p>
+                        <p class="text-sm text-gray-500 mb-6">任务ID: ${this.currentTaskId || 'N/A'}</p>
+                        
+                        <div class="space-y-3">
+                            <button id="refresh-btn" class="btn-primary">
+                                🔄 重新检查
+                            </button>
+                            <button id="new-analysis-btn" class="btn-secondary">
+                                🆕 开始新的分析
+                            </button>
+                        </div>
+                        
+                        <div class="mt-4 text-xs text-gray-400">
+                            💡 已停止自动重试以节省token
+                        </div>
+                    </div>
+                </div>
+            `;
+            stockInfoDiv.innerHTML = failureHtml;
+            this.bindRefreshButton();
+            this.bindNewAnalysisButton();
+        }
+    }
+
+    bindNewAnalysisButton() {
+        // 绑定新分析按钮
+        const newAnalysisBtn = document.getElementById('new-analysis-btn');
+        if (newAnalysisBtn) {
+            newAnalysisBtn.addEventListener('click', () => {
+                // 清理当前状态
+                this.currentTaskId = null;
+                this.currentStockCode = null;
+                if (this.pollingInterval) {
+                    clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                }
+                
+                // 清空结果显示
+                const stockInfoDiv = document.getElementById('stock-info');
+                stockInfoDiv.innerHTML = '';
+                stockInfoDiv.className = 'hidden';
+                
+                // 清空输入框焦点
+                const stockInput = document.getElementById('stock-input');
+                stockInput.value = '';
+                stockInput.focus();
+            });
         }
     }
 }
