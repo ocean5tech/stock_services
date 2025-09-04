@@ -178,29 +178,90 @@ class handler(BaseHTTPRequestHandler):
             }
     
     def handle_check_result(self, query_params):
-        """检查分析结果 - 不触发新的workflow"""
+        """检查分析结果 - 重新调用n8n获取结果"""
         code = query_params.get('code', [''])[0]
         if not code:
             return {"error": "Missing stock code parameter"}
         
-        # 这里应该从某个存储中检查结果，现在返回模拟数据
-        # 实际实现中可能需要数据库或缓存来存储workflow结果
-        return {
-            "stock_code": code,
-            "data_source": "result_check",
-            "timestamp": datetime.now().isoformat(),
-            "status": "checking",
-            "message": "结果检查功能需要配合数据库实现",
-            "note": "当前版本无法检查之前的结果，请重新触发分析"
-        }
+        # 重新调用n8n webhook获取最新结果
+        try:
+            webhook_base_url = "https://ocean5tech.app.n8n.cloud/webhook/stock-master"
+            
+            # 构建带参数的URL
+            params = urlparse_lib.urlencode({
+                'code': code,
+                'timestamp': datetime.now().isoformat()
+            })
+            webhook_url = f"{webhook_base_url}?{params}"
+            
+            print(f"DEBUG: Calling webhook for result check: {webhook_url}")
+            
+            req = urllib.request.Request(
+                webhook_url,
+                headers={
+                    'User-Agent': 'Stock-Services/1.0'
+                },
+                method='GET'
+            )
+            
+            with urllib.request.urlopen(req, timeout=120) as response:  # 长超时等待workflow完成
+                response_data = response.read().decode('utf-8')
+                print(f"DEBUG: Raw response length: {len(response_data)}")
+                print(f"DEBUG: Raw response preview: {response_data[:200]}...")
+                
+                result = json.loads(response_data)
+                print(f"DEBUG: Parsed result type: {type(result)}")
+                
+                # 检查是否有分析结果
+                if self.is_analysis_result(result):
+                    print("DEBUG: Analysis result found, processing...")
+                    processed_analysis = self.process_n8n_result(result)
+                    return {
+                        "stock_code": code,
+                        "data_source": "n8n_workflow",
+                        "timestamp": datetime.now().isoformat(),
+                        "analysis": processed_analysis,
+                        "status": "completed",
+                        "webhook_url": webhook_url
+                    }
+                else:
+                    print("DEBUG: No analysis result found, returning processing status")
+                    return {
+                        "stock_code": code,
+                        "data_source": "result_check",
+                        "timestamp": datetime.now().isoformat(),
+                        "status": "processing",
+                        "message": "分析还在进行中",
+                        "note": "workflow尚未完成，请稍后再试",
+                        "debug_result_type": str(type(result)),
+                        "debug_result_preview": str(result)[:200] if result else "null"
+                    }
+                    
+        except Exception as e:
+            return {
+                "stock_code": code,
+                "error": f"检查结果失败: {str(e)}",
+                "data_source": "result_check_error",
+                "timestamp": datetime.now().isoformat(),
+                "status": "error"
+            }
     
     def is_analysis_result(self, result):
         """判断是否是真正的分析结果"""
-        if isinstance(result, list) and len(result) >= 2:
+        print(f"DEBUG: Checking result type: {type(result)}")
+        print(f"DEBUG: Result content: {json.dumps(result, ensure_ascii=False, indent=2)[:500]}...")
+        
+        if isinstance(result, list) and len(result) >= 1:  # 至少1个输出就算有结果
             # 检查是否包含分析输出
-            for item in result:
-                if isinstance(item, dict) and 'output' in item and len(str(item['output'])) > 100:
-                    return True
+            for i, item in enumerate(result):
+                print(f"DEBUG: Item {i}: type={type(item)}, keys={list(item.keys()) if isinstance(item, dict) else 'not dict'}")
+                if isinstance(item, dict) and 'output' in item:
+                    output_content = str(item['output'])
+                    print(f"DEBUG: Output length: {len(output_content)}")
+                    if len(output_content) > 50:  # 降低阈值，确保有实际内容
+                        print(f"DEBUG: Found valid output in item {i}")
+                        return True
+        print("DEBUG: No valid analysis result found")
         return False
     
     def process_n8n_result(self, result):
