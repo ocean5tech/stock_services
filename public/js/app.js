@@ -226,7 +226,7 @@ class StockApp {
         let pollCount = 0;
         let failureCount = 0;
         const maxPolls = 8; // 减少到8次 (约4分钟)
-        const maxFailures = 3; // 最多允许3次失败就停止
+        const maxFailures = 1; // 失败1次就立即停止
         
         console.log(`开始自动检查，最多检查${maxPolls}次，允许${maxFailures}次失败`);
         
@@ -253,8 +253,8 @@ class StockApp {
                 console.error(`检查失败 (${failureCount}/${maxFailures}):`, error);
                 
                 if (failureCount >= maxFailures) {
-                    console.log('❌ 失败次数过多，停止自动检查');
-                    this.showPollingFailure('检查失败次数过多，请手动重试或联系支持');
+                    console.log('❌ 检查失败，立即停止自动检查');
+                    this.showPollingFailure('检查失败，已停止自动重试以保护token');
                     clearInterval(this.pollingInterval);
                     this.pollingInterval = null;
                     return;
