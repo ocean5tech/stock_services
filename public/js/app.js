@@ -89,7 +89,7 @@ class StockApp {
                 <div class="loading-spinner mr-2"></div>
                 <div>
                     <p class="font-semibold">正在分析股票 ${stockCode}...</p>
-                    <p class="text-sm text-gray-600 mt-1">调用专业分析流程，预计需要20-30秒</p>
+                    <p class="text-sm text-gray-600 mt-1">调用n8n专业分析，请等待...</p>
                 </div>
             </div>
         `;
@@ -111,23 +111,9 @@ class StockApp {
             // 处理数据格式
             const processedData = this.processStockData(data);
             
-            // 保存任务信息
-            if (processedData.task_id) {
-                this.currentTaskId = processedData.task_id;
-                this.currentStockCode = processedData.stock_code;
-            }
-            
             // 渲染股票信息
             stockInfoDiv.innerHTML = this.stockTemplate(processedData);
             stockInfoDiv.className = '';
-            
-            // 绑定刷新按钮事件
-            this.bindRefreshButton();
-            
-            // 不再自动启动轮询，完全由用户手动控制
-            // if (processedData.status === 'processing' || processedData.status === 'triggered') {
-            //     this.startPolling();
-            // }
             
         } catch (error) {
             console.error('查询股票信息失败:', error);
@@ -143,27 +129,15 @@ class StockApp {
     }
 
     processStockData(data) {
-        // 处理n8n返回的分析数据格式
-        const processed = {
+        // 简单处理n8n返回的分析数据
+        return {
             stock_code: data.stock_code,
-            data_source: data.data_source || 'unknown',
+            data_source: data.data_source || 'n8n_workflow',
             timestamp: data.timestamp || new Date().toISOString(),
-            status: data.status || 'processing',
+            status: data.status || 'completed',
             analysis: data.analysis || null,
-            error: data.error || null,
-            task_id: data.task_id || null
+            error: data.error || null
         };
-        
-        // 检查analysis是否只是workflow启动确认
-        if (processed.analysis && processed.analysis.message === "Workflow was started") {
-            // 这只是启动确认，不是真正的分析结果
-            processed.status = 'processing';
-            processed.analysis = null;
-            processed.message = "股票分析任务已启动";
-            processed.estimated_time = "预计需要2-3分钟完成分析";
-        }
-        
-        return processed;
     }
 
     async checkApiStatus() {

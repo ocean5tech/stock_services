@@ -71,22 +71,17 @@ class handler(BaseHTTPRequestHandler):
             return {"error": "Missing stock code parameter"}
         
         try:
-            # 调用n8n webhook (异步触发，不等待完成)
+            # 直接调用n8n webhook并等待完成
             webhook_base_url = "https://ocean5tech.app.n8n.cloud/webhook/stock-master"
-            
-            # 生成任务ID
-            import hashlib
-            task_id = hashlib.md5(f"{code}_{datetime.now().isoformat()}".encode()).hexdigest()[:16]
             
             # 构建带参数的URL
             params = urlparse_lib.urlencode({
                 'code': code,
-                'task_id': task_id,
                 'timestamp': datetime.now().isoformat()
             })
             webhook_url = f"{webhook_base_url}?{params}"
             
-            # 发送GET请求到n8n webhook (短超时，只确认触发成功)
+            # 发送GET请求到n8n webhook并等待完成
             req = urllib.request.Request(
                 webhook_url,
                 headers={
@@ -95,36 +90,19 @@ class handler(BaseHTTPRequestHandler):
                 method='GET'
             )
             
-            try:
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    response_data = response.read().decode('utf-8')
-                    trigger_result = json.loads(response_data)
-                    
-                    # 立即返回任务信息，不等待workflow完成
-                    return {
-                        "stock_code": code,
-                        "task_id": task_id,
-                        "data_source": "n8n_workflow",
-                        "timestamp": datetime.now().isoformat(),
-                        "status": "processing",
-                        "message": "股票分析任务已启动",
-                        "webhook_url": webhook_url,
-                        "trigger_result": trigger_result,
-                        "estimated_time": "预计需要2-3分钟完成分析"
-                    }
-                    
-            except Exception as trigger_error:
-                # 如果触发失败，尝试fallback方案
+            # 等待n8n workflow完成（增加超时时间）
+            with urllib.request.urlopen(req, timeout=180) as response:  # 3分钟超时
+                response_data = response.read().decode('utf-8')
+                n8n_result = json.loads(response_data)
+                
+                # 直接返回n8n的分析结果
                 return {
                     "stock_code": code,
-                    "task_id": task_id,
                     "data_source": "n8n_workflow",
                     "timestamp": datetime.now().isoformat(),
-                    "status": "triggered",
-                    "message": "分析任务可能已启动",
-                    "webhook_url": webhook_url,
-                    "trigger_error": str(trigger_error),
-                    "note": "由于超时限制，无法确认任务状态，请稍后查看结果"
+                    "analysis": n8n_result,
+                    "status": "completed",
+                    "webhook_url": webhook_url
                 }
                 
         except urllib.error.HTTPError as e:
