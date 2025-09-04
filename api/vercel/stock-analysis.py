@@ -204,22 +204,26 @@ class handler(BaseHTTPRequestHandler):
         return False
     
     def process_n8n_result(self, result):
-        """处理n8n返回的结果，转换为前端期望的格式"""
+        """处理n8n返回的结果，动态处理任意数量的output"""
         if not isinstance(result, list):
             return None
             
-        processed = {}
+        articles = []
         
         try:
-            # 假设第一个是资深股票文章写手，第二个是暗黑股票文章写手
-            if len(result) >= 1 and 'output' in result[0]:
-                processed['professional_analysis'] = result[0]['output']
-            
-            if len(result) >= 2 and 'output' in result[1]:
-                processed['dark_analysis'] = result[1]['output']
-                
+            for i, item in enumerate(result):
+                if isinstance(item, dict) and 'output' in item:
+                    output_content = item['output']
+                    if output_content and len(str(output_content)) > 50:  # 确保有实际内容
+                        articles.append({
+                            'id': f'article_{i+1}',
+                            'title': f'分析文章 {i+1}',
+                            'content': output_content,
+                            'index': i+1
+                        })
+                        
         except (KeyError, IndexError, TypeError) as e:
             print(f"Error processing n8n result: {e}")
             return None
             
-        return processed if processed else None
+        return {'articles': articles} if articles else None

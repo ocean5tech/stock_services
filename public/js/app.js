@@ -53,6 +53,34 @@ class StockApp {
         Handlebars.registerHelper('eq', function(a, b) {
             return a === b;
         });
+        
+        // 动态颜色配置，支持任意数量的文章
+        const colors = [
+            { border: 'border-blue-500', text: 'text-blue-600', icon: 'text-blue-500' },
+            { border: 'border-red-500', text: 'text-red-600', icon: 'text-red-500' },
+            { border: 'border-green-500', text: 'text-green-600', icon: 'text-green-500' },
+            { border: 'border-purple-500', text: 'text-purple-600', icon: 'text-purple-500' },
+            { border: 'border-orange-500', text: 'text-orange-600', icon: 'text-orange-500' },
+            { border: 'border-indigo-500', text: 'text-indigo-600', icon: 'text-indigo-500' }
+        ];
+        
+        const icons = ['📊', '⚡', '🎯', '💡', '🔥', '⭐'];
+        
+        Handlebars.registerHelper('getBorderColor', function(index) {
+            return colors[index % colors.length].border;
+        });
+        
+        Handlebars.registerHelper('getTextColor', function(index) {
+            return colors[index % colors.length].text;
+        });
+        
+        Handlebars.registerHelper('getIconColor', function(index) {
+            return colors[index % colors.length].icon;
+        });
+        
+        Handlebars.registerHelper('getArticleIcon', function(index) {
+            return icons[index % icons.length];
+        });
     }
 
     bindEvents() {
@@ -439,8 +467,8 @@ class StockApp {
             
             // 检查是否有真正的分析结果
             if (processedData.analysis && 
-                (processedData.analysis.professional_analysis || 
-                 processedData.analysis.dark_analysis)) {
+                processedData.analysis.articles && 
+                processedData.analysis.articles.length > 0) {
                 // 有分析结果，显示文章
                 const stockInfoDiv = document.getElementById('stock-info');
                 stockInfoDiv.innerHTML = this.stockTemplate(processedData);
