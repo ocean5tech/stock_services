@@ -11,9 +11,9 @@
 
 ## 项目简介 / Project Overview
 
-这是一个基于FastAPI和PostgreSQL的综合股票服务后端API系统，集成AI驱动的新闻分析工作流，部署在服务器IP `35.77.54.203` 上。系统包含三个独立的股票API服务和完整的AI新闻分析系统。
+这是一个基于FastAPI和PostgreSQL的全栈股票分析系统，集成Claude AI驱动的智能投资分析工作流，部署在服务器IP `35.77.54.203` 上。系统提供三个专业的股票服务API和完整的AI分析生态系统，为投资决策提供数据驱动的智能支持。
 
-This is a comprehensive stock services backend API system based on FastAPI and PostgreSQL, integrated with AI-driven news analysis workflows, deployed on server IP `35.77.54.203`. The system includes three independent stock API services and a complete AI news analysis system.
+This is a comprehensive full-stack stock analysis system based on FastAPI and PostgreSQL, integrated with Claude AI-powered intelligent investment analysis workflows, deployed on server IP `35.77.54.203`. The system provides three professional stock service APIs and a complete AI analysis ecosystem, offering data-driven intelligent support for investment decisions.
 
 ## 🚀 核心功能 / Core Features
 

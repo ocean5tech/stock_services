@@ -60,13 +60,35 @@ async def get_financial_abstract(
             "stock_code": stock_code,
             "data_source": "akshare_financial_abstract", 
             "update_time": datetime.now().isoformat(),
-            "financial_indicators": financial_data.to_dict('records')
+            "financial_indicators": financial_data.fillna('').to_dict('records')
         }
         
         return result
         
     except Exception as e:
         logger.error(f"Error getting financial abstract for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/comprehensive-financial/{stock_code}", summary="获取全面财务指标数据")
+async def get_comprehensive_financial(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取股票全面财务指标数据 / Get comprehensive financial indicators data
+    包含财务报表、财务比率、盈利能力、运营效率、流动性、杠杆和成长性指标的完整分析
+    """
+    try:
+        # 调用akshare获取全面财务指标数据
+        comprehensive_data = akshare_service.get_comprehensive_financial_indicators(stock_code)
+        
+        if comprehensive_data is None:
+            raise HTTPException(status_code=404, detail=f"Comprehensive financial data for stock {stock_code} not found")
+        
+        return comprehensive_data
+        
+    except Exception as e:
+        logger.error(f"Error getting comprehensive financial data for {stock_code}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/stock-info/{stock_code}", summary="获取股票基本信息")
@@ -97,6 +119,333 @@ async def get_stock_info(
     except Exception as e:
         logger.error(f"Error getting stock info for {stock_code}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/comprehensive-data/{stock_code}", summary="获取股票综合数据")
+async def get_comprehensive_data(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取股票综合数据 / Get comprehensive stock data
+    包含财务指标、技术指标、基本信息的完整数据集
+    """
+    try:
+        # 调用akshare获取综合数据
+        comprehensive_data = akshare_service.get_comprehensive_financial_data(stock_code)
+        
+        if comprehensive_data is None:
+            raise HTTPException(status_code=404, detail=f"Comprehensive data for stock {stock_code} not found")
+        
+        return comprehensive_data
+        
+    except Exception as e:
+        logger.error(f"Error getting comprehensive data for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/technical-indicators/{stock_code}", summary="获取股票技术指标")
+async def get_technical_indicators(
+    stock_code: str,
+    days: int = Query(60, ge=20, le=250, description="历史数据天数"),
+    db: Session = Depends(get_db)
+):
+    """
+    获取股票技术指标 / Get stock technical indicators
+    包含移动平均线、成交量指标、价格波动率等技术分析数据
+    """
+    try:
+        # 获取历史数据
+        historical_data = akshare_service._get_historical_data(stock_code, days=days)
+        if historical_data is None:
+            raise HTTPException(status_code=404, detail=f"Historical data for stock {stock_code} not found")
+        
+        # 计算技术指标
+        technical_indicators = akshare_service._calculate_technical_indicators(historical_data)
+        
+        result = {
+            "stock_code": stock_code,
+            "data_source": "akshare_historical_data",
+            "update_time": datetime.now().isoformat(),
+            "analysis_period_days": days,
+            "technical_indicators": technical_indicators,
+            "data_points_analyzed": len(historical_data)
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting technical indicators for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/industry-analysis/{stock_code}", summary="获取股票行业分析")
+async def get_industry_analysis_data(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取股票行业分析数据 / Get stock industry analysis data
+    包含行业概况、市场地位分析等
+    """
+    try:
+        # 调用akshare获取行业分析数据
+        industry_analysis = akshare_service.get_industry_analysis(stock_code)
+        
+        if industry_analysis is None:
+            raise HTTPException(status_code=404, detail=f"Industry analysis for stock {stock_code} not found")
+        
+        return industry_analysis
+        
+    except Exception as e:
+        logger.error(f"Error getting industry analysis for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/historical-data/{stock_code}", summary="获取股票历史数据")
+async def get_historical_data(
+    stock_code: str,
+    period: str = Query("daily", description="数据周期: daily, weekly, monthly"),
+    days: int = Query(30, ge=1, le=1000, description="获取天数"),
+    db: Session = Depends(get_db)
+):
+    """
+    获取股票历史数据 / Get stock historical data
+    包含开高低收、成交量等历史交易数据
+    """
+    try:
+        # 获取历史数据
+        historical_data = akshare_service._get_historical_data(stock_code, period=period, days=days)
+        
+        if historical_data is None or historical_data.empty:
+            raise HTTPException(status_code=404, detail=f"Historical data for stock {stock_code} not found")
+        
+        # 转换为API友好的格式
+        data_records = []
+        for _, row in historical_data.iterrows():
+            data_records.append({
+                "date": row["日期"],
+                "open": float(row["开盘"]),
+                "close": float(row["收盘"]),
+                "high": float(row["最高"]),
+                "low": float(row["最低"]),
+                "volume": int(row["成交量"]),
+                "amount": float(row["成交额"]),
+                "change_pct": float(row["涨跌幅"]),
+                "change_amount": float(row["涨跌额"]),
+                "turnover_rate": float(row["换手率"])
+            })
+        
+        result = {
+            "stock_code": stock_code,
+            "data_source": "akshare_historical_data",
+            "update_time": datetime.now().isoformat(),
+            "period": period,
+            "total_records": len(data_records),
+            "data_range": {
+                "start_date": data_records[0]["date"] if data_records else None,
+                "end_date": data_records[-1]["date"] if data_records else None
+            },
+            "historical_data": data_records
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting historical data for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/fund-flow/{stock_code}", summary="获取资金流向数据")
+async def get_fund_flow(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取资金流向数据 / Get fund flow data
+    包含主力资金、大单、中单、小单的净流入数据和统计分析
+    """
+    try:
+        # 调用akshare获取资金流向数据
+        fund_flow_data = akshare_service.get_fund_flow_data(stock_code)
+        
+        if fund_flow_data is None:
+            raise HTTPException(status_code=404, detail=f"Fund flow data for stock {stock_code} not found")
+        
+        return fund_flow_data
+        
+    except Exception as e:
+        logger.error(f"Error getting fund flow data for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/news-research/{stock_code}", summary="获取新闻和研报数据")
+async def get_news_research(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取新闻和研报数据 / Get news and research data
+    包含最新的股票相关新闻和券商研究报告
+    """
+    try:
+        # 调用akshare获取新闻研报数据
+        news_research_data = akshare_service.get_news_and_research_data(stock_code)
+        
+        if news_research_data is None:
+            raise HTTPException(status_code=404, detail=f"News and research data for stock {stock_code} not found")
+        
+        return news_research_data
+        
+    except Exception as e:
+        logger.error(f"Error getting news research data for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/minute-data/{stock_code}", summary="获取分钟级数据")
+async def get_minute_data(
+    stock_code: str,
+    period: str = Query("5", description="分钟周期: 1, 5, 15, 30, 60"),
+    db: Session = Depends(get_db)
+):
+    """
+    获取分钟级数据 / Get minute-level data
+    包含今日分钟级价格数据、成交量和交易模式分析
+    """
+    try:
+        # 验证period参数
+        valid_periods = ['1', '5', '15', '30', '60']
+        if period not in valid_periods:
+            raise HTTPException(status_code=400, detail=f"Invalid period. Must be one of {valid_periods}")
+        
+        # 调用akshare获取分钟数据
+        minute_data = akshare_service.get_minute_data(stock_code, period)
+        
+        if minute_data is None:
+            raise HTTPException(status_code=404, detail=f"Minute data for stock {stock_code} not found")
+        
+        return minute_data
+        
+    except Exception as e:
+        logger.error(f"Error getting minute data for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/comprehensive-market/{stock_code}", summary="获取综合市场数据")
+async def get_comprehensive_market(
+    stock_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取综合市场数据 / Get comprehensive market data
+    一次性获取资金流向、新闻研报、分钟数据等完整市场信息
+    """
+    try:
+        # 调用akshare获取综合市场数据
+        comprehensive_data = akshare_service.get_comprehensive_market_data(stock_code)
+        
+        if comprehensive_data is None:
+            raise HTTPException(status_code=404, detail=f"Comprehensive market data for stock {stock_code} not found")
+        
+        return comprehensive_data
+        
+    except Exception as e:
+        logger.error(f"Error getting comprehensive market data for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.get("/api/advanced-technical/{stock_code}", summary="获取高级技术指标")
+async def get_advanced_technical(
+    stock_code: str,
+    days: int = Query(100, ge=30, le=500, description="历史数据天数"),
+    db: Session = Depends(get_db)
+):
+    """
+    获取高级技术指标 / Get advanced technical indicators
+    包含RSI、MACD、KDJ、布林带、威廉指标、CCI等专业技术分析指标
+    """
+    try:
+        # 获取历史数据
+        historical_data = akshare_service._get_historical_data(stock_code, days=days)
+        if historical_data is None:
+            raise HTTPException(status_code=404, detail=f"Historical data for stock {stock_code} not found")
+        
+        # 计算高级技术指标
+        technical_indicators = akshare_service._calculate_technical_indicators(historical_data)
+        
+        # 提取高级指标
+        advanced_indicators = {
+            key: value for key, value in technical_indicators.items() 
+            if key in ['rsi_14', 'macd', 'kdj', 'bollinger_bands', 'williams_r', 'cci_20', 'atr_14', 'support_resistance']
+        }
+        
+        result = {
+            "stock_code": stock_code,
+            "data_source": "akshare_advanced_technical",
+            "update_time": datetime.now().isoformat(),
+            "analysis_period_days": days,
+            "advanced_indicators": advanced_indicators,
+            "data_points_analyzed": len(historical_data),
+            "indicator_interpretation": {
+                "rsi_signal": "overbought" if advanced_indicators.get('rsi_14', 50) > 70 else "oversold" if advanced_indicators.get('rsi_14', 50) < 30 else "neutral",
+                "bollinger_position": _analyze_bollinger_position(technical_indicators.get('current_price', 0), advanced_indicators.get('bollinger_bands', {})),
+                "kdj_signal": _analyze_kdj_signal(advanced_indicators.get('kdj', {})),
+                "macd_trend": _analyze_macd_trend(advanced_indicators.get('macd', {}))
+            }
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting advanced technical indicators for {stock_code}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+def _analyze_bollinger_position(current_price: float, bollinger: dict) -> str:
+    """分析布林带位置"""
+    if not bollinger or not current_price:
+        return "unknown"
+    
+    upper = bollinger.get('upper')
+    lower = bollinger.get('lower')
+    
+    if upper and lower:
+        if current_price > upper:
+            return "above_upper_band"
+        elif current_price < lower:
+            return "below_lower_band"
+        else:
+            return "within_bands"
+    return "unknown"
+
+def _analyze_kdj_signal(kdj: dict) -> str:
+    """分析KDJ信号"""
+    if not kdj:
+        return "unknown"
+    
+    k = kdj.get('K', 50)
+    d = kdj.get('D', 50)
+    
+    if k > 80 and d > 80:
+        return "overbought"
+    elif k < 20 and d < 20:
+        return "oversold"
+    elif k > d:
+        return "bullish"
+    elif k < d:
+        return "bearish"
+    else:
+        return "neutral"
+
+def _analyze_macd_trend(macd: dict) -> str:
+    """分析MACD趋势"""
+    if not macd:
+        return "unknown"
+    
+    macd_line = macd.get('macd', 0)
+    signal_line = macd.get('signal', 0)
+    histogram = macd.get('histogram', 0)
+    
+    if macd_line > signal_line and histogram > 0:
+        return "bullish_strong"
+    elif macd_line > signal_line and histogram < 0:
+        return "bullish_weak"
+    elif macd_line < signal_line and histogram < 0:
+        return "bearish_strong"
+    elif macd_line < signal_line and histogram > 0:
+        return "bearish_weak"
+    else:
+        return "neutral"
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
