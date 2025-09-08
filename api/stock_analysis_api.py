@@ -7,6 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import akshare as ak
 from datetime import datetime, timedelta
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__)))
 from akshare_service import AkshareService
 
 app = FastAPI(

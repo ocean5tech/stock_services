@@ -9,7 +9,13 @@ from typing import Optional, Dict, Any, List
 import time
 from datetime import datetime
 import logging
-from config import Config
+try:
+    from config import Config
+except ImportError:
+    # 如果无法导入Config，使用默认配置
+    class Config:
+        AKSHARE_CACHE_ENABLED = True
+        AKSHARE_CACHE_TTL = 300
 
 # 配置日志 / Configure logging
 logging.basicConfig(level=logging.INFO)
