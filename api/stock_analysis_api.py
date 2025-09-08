@@ -418,12 +418,41 @@ async def get_dragon_tiger_list(stock_code: str, days: int = 90):
         dragon_tiger_data = akshare_service.get_dragon_tiger_data(stock_code, days)
         
         if dragon_tiger_data is None:
-            return {"error": f"Stock {stock_code} dragon tiger data not found"}
+            # 返回标准空结果而不是错误 - 改进错误处理
+            return {
+                'stock_code': stock_code,
+                'data_source': 'akshare_dragon_tiger_fallback',
+                'update_time': datetime.now().isoformat(),
+                'query_period_days': days,
+                'total_records': 0,
+                'dragon_tiger_records': [],
+                'summary': {
+                    'total_appearances': 0,
+                    'total_net_buy': 0,
+                    'reasons': []
+                },
+                'note': f'该股票在最近{days}天内无龙虎榜记录'
+            }
         
         return dragon_tiger_data
         
     except Exception as e:
-        return {"error": f"获取龙虎榜数据失败: {str(e)}"}
+        # 发生异常时也返回空结果结构，而不是简单的错误
+        return {
+            'stock_code': stock_code,
+            'data_source': 'akshare_dragon_tiger_error',
+            'update_time': datetime.now().isoformat(),
+            'query_period_days': days,
+            'total_records': 0,
+            'dragon_tiger_records': [],
+            'summary': {
+                'total_appearances': 0,
+                'total_net_buy': 0,
+                'reasons': []
+            },
+            'error': f"获取龙虎榜数据失败: {str(e)}",
+            'note': '数据获取异常，请稍后重试'
+        }
 
 @app.get("/stocks/{stock_code}/news/industry")
 async def get_industry_news(stock_code: str):
@@ -825,9 +854,9 @@ async def get_unified_stock_info(stock_code: str):
                 # 交易状态
                 "trading_status": {
                     "trading_volume": float(tech_indicators.get("realtime", {}).get("总手", 0)),
-                    "trading_amount": float(tech_indicators.get("realtime", {}).get("总额", 0)),
-                    "bid_price": float(tech_indicators.get("realtime", {}).get("买一价", 0)),
-                    "ask_price": float(tech_indicators.get("realtime", {}).get("卖一价", 0)),
+                    "trading_amount": float(tech_indicators.get("realtime", {}).get("金额", 0)),  # 修复字段名
+                    "bid_price": float(tech_indicators.get("realtime", {}).get("buy_1", 0)),      # 修复字段名
+                    "ask_price": float(tech_indicators.get("realtime", {}).get("sell_1", 0)),     # 修复字段名
                     "status": "交易中" if datetime.now().hour >= 9 and datetime.now().hour < 15 else "停牌"
                 }
             },
@@ -961,6 +990,7 @@ async def get_historical_prices(stock_code: str, days: int = 30):
         for i, (_, row) in enumerate(df.iterrows()):
             daily_data = {
                 "date": row['日期'].strftime('%Y-%m-%d') if hasattr(row['日期'], 'strftime') else str(row['日期']),
+                "stock_code": stock_code,  # 添加股票代码
                 "open": float(row['开盘']),
                 "high": float(row['最高']),
                 "low": float(row['最低']), 
@@ -969,6 +999,8 @@ async def get_historical_prices(stock_code: str, days: int = 30):
                 "amount": float(row['成交额']),
                 "change_pct": float(row['涨跌幅']),
                 "change": float(row['涨跌额']),
+                "amplitude": float(row.get('振幅', 0)),  # 添加振幅
+                "turnover_rate": float(row.get('换手率', 0)),  # 添加换手率
                 "ma5": ma5[i] if i < len(ma5) else 0,
                 "ma10": ma10[i] if i < len(ma10) else 0,
                 "ma20": ma20[i] if i < len(ma20) else 0
@@ -1137,37 +1169,37 @@ async def get_live_quote(stock_code: str):
                 "open": float(realtime_data.get("今开", 0)),
                 "previous_close": float(realtime_data.get("昨收", 0)),
                 "volume": float(realtime_data.get("总手", 0)),
-                "amount": float(realtime_data.get("总额", 0))
+                "amount": float(realtime_data.get("金额", 0))  # 修复：使用正确的字段名
             },
             
             "bid_ask_data": {
                 "bid_prices": [
-                    float(realtime_data.get("买一价", 0)),
-                    float(realtime_data.get("买二价", 0)),
-                    float(realtime_data.get("买三价", 0)),
-                    float(realtime_data.get("买四价", 0)),
-                    float(realtime_data.get("买五价", 0))
+                    float(realtime_data.get("buy_1", 0)),  # 修复：使用英文字段名
+                    float(realtime_data.get("buy_2", 0)),
+                    float(realtime_data.get("buy_3", 0)),
+                    float(realtime_data.get("buy_4", 0)),
+                    float(realtime_data.get("buy_5", 0))
                 ],
                 "bid_volumes": [
-                    float(realtime_data.get("买一量", 0)),
-                    float(realtime_data.get("买二量", 0)), 
-                    float(realtime_data.get("买三量", 0)),
-                    float(realtime_data.get("买四量", 0)),
-                    float(realtime_data.get("买五量", 0))
+                    float(realtime_data.get("buy_1_vol", 0)),  # 修复：使用英文字段名
+                    float(realtime_data.get("buy_2_vol", 0)), 
+                    float(realtime_data.get("buy_3_vol", 0)),
+                    float(realtime_data.get("buy_4_vol", 0)),
+                    float(realtime_data.get("buy_5_vol", 0))
                 ],
                 "ask_prices": [
-                    float(realtime_data.get("卖一价", 0)),
-                    float(realtime_data.get("卖二价", 0)),
-                    float(realtime_data.get("卖三价", 0)),
-                    float(realtime_data.get("卖四价", 0)),
-                    float(realtime_data.get("卖五价", 0))
+                    float(realtime_data.get("sell_1", 0)),  # 修复：使用英文字段名
+                    float(realtime_data.get("sell_2", 0)),
+                    float(realtime_data.get("sell_3", 0)),
+                    float(realtime_data.get("sell_4", 0)),
+                    float(realtime_data.get("sell_5", 0))
                 ],
                 "ask_volumes": [
-                    float(realtime_data.get("卖一量", 0)),
-                    float(realtime_data.get("卖二量", 0)),
-                    float(realtime_data.get("卖三量", 0)),
-                    float(realtime_data.get("卖四量", 0)),
-                    float(realtime_data.get("卖五量", 0))
+                    float(realtime_data.get("sell_1_vol", 0)),  # 修复：使用英文字段名
+                    float(realtime_data.get("sell_2_vol", 0)),
+                    float(realtime_data.get("sell_3_vol", 0)),
+                    float(realtime_data.get("sell_4_vol", 0)),
+                    float(realtime_data.get("sell_5_vol", 0))
                 ]
             },
             
