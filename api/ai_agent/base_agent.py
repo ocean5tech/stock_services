@@ -136,7 +136,7 @@ class BaseAIAgent(ABC):
             
             # 准备参数
             params = {
-                "model": self.model_params.get("model", "claude-3-sonnet-20240229"),
+                "model": self.model_params.get("model", "claude-3-5-sonnet-20241022"),
                 "max_tokens": self.model_params.get("max_tokens", 4000),
                 "temperature": self.model_params.get("temperature", 0.1),
                 "system": system_prompt,
@@ -225,7 +225,7 @@ class BaseAIAgent(ABC):
             result = {
                 'agent_name': self.agent_name,
                 'analysis_timestamp': datetime.now().isoformat(),
-                'model': self.model_params.get("model", "claude-3-sonnet-20240229"),
+                'model': self.model_params.get("model", "claude-3-5-sonnet-20241022"),
                 'cached': False,
                 'data': parsed_result,
                 'raw_response': ai_response  # 可选：保留原始响应用于调试
@@ -253,7 +253,7 @@ class BaseAIAgent(ABC):
         return {
             'agent_name': self.agent_name,
             'config_version': self.config.get('version', 'unknown'),
-            'model': self.model_params.get("model", "claude-3-sonnet-20240229"),
+            'model': self.model_params.get("model", "claude-3-5-sonnet-20241022"),
             'cache_enabled': self.cache_config.get('enabled', False),
             'cache_ttl': self.cache_config.get('ttl', 0)
         }

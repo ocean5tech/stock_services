@@ -1233,12 +1233,16 @@ async def get_live_flow(stock_code: str):
             "data_source": "akshare_live_fund_flow",
             "update_time": datetime.now().isoformat(),
             
-            "fund_flow_summary": fund_flow_data.get("fund_flow_summary", {}),
-            "detailed_flow_data": fund_flow_data.get("fund_flow_data", []),
-            "flow_statistics": fund_flow_data.get("flow_statistics", {}),
+            "fund_flow_summary": fund_flow_data.get("summary", {}),
+            "detailed_flow_data": fund_flow_data.get("recent_30_days", []),
+            "flow_statistics": {
+                "recent_30_days_count": len(fund_flow_data.get("recent_30_days", [])),
+                "latest_date": fund_flow_data.get("latest_data", {}).get("日期", ""),
+                "data_source": fund_flow_data.get("data_source", "akshare_fund_flow")
+            },
             
             "metadata": {
-                "data_quality": fund_flow_data.get("data_quality", "good"),
+                "data_quality": "good",
                 "update_frequency": "real_time",
                 "source_reliability": "high"
             }
@@ -1564,6 +1568,378 @@ async def legacy_technical_indicators_redirect(stock_code: str):
         
     except Exception as e:
         return {"error": f"获取技术指标失败: {str(e)}"}
+
+# ============ AI分析功能集成 ============
+# 导入AI分析模块
+try:
+    import sys
+    import os
+    ai_analysis_path = os.path.join(os.path.dirname(__file__), 'ai_analysis')
+    if ai_analysis_path not in sys.path:
+        sys.path.append(ai_analysis_path)
+    
+    from ai_analysis.services.cache_manager import analysis_cache
+    from ai_analysis.services.data_aggregator import stock_data_aggregator
+    from ai_analysis.agents.technical_agent import TechnicalAnalysisAgent
+    from ai_analysis.agents.comprehensive_agent import ComprehensiveAnalysisAgent
+    
+    # 初始化AI Agents
+    technical_agent = None
+    comprehensive_agent = None
+    
+    def initialize_ai_agents():
+        """初始化AI Agents"""
+        global technical_agent, comprehensive_agent
+        try:
+            api_key = os.getenv('ANTHROPIC_API_KEY')
+            if not api_key:
+                print("警告: ANTHROPIC_API_KEY环境变量未设置，AI功能将不可用")
+                return False
+            
+            technical_agent = TechnicalAnalysisAgent(api_key)
+            comprehensive_agent = ComprehensiveAnalysisAgent(api_key)
+            print("✓ AI Agents初始化成功")
+            return True
+        except Exception as e:
+            print(f"✗ AI Agents初始化失败: {e}")
+            return False
+    
+    # 在应用启动时初始化
+    @app.on_event("startup")
+    async def startup_event():
+        """应用启动事件"""
+        print("启动AI分析功能...")
+        initialize_ai_agents()
+        
+        # 测试Redis连接
+        try:
+            await analysis_cache.connect()
+            print("✓ Redis连接成功")
+        except Exception as e:
+            print(f"✗ Redis连接失败: {e}")
+    
+    # AI分析端点
+    from fastapi import HTTPException
+    from pydantic import BaseModel
+    from typing import Optional
+    
+    class TradingSignalRequest(BaseModel):
+        force_refresh: Optional[bool] = False
+    
+    class ComprehensiveEvalRequest(BaseModel):
+        force_refresh: Optional[bool] = False
+    
+    @app.post("/ai/trading-signal/{stock_code}")
+    async def get_trading_signal(
+        stock_code: str, 
+        request: TradingSignalRequest = TradingSignalRequest()
+    ):
+        """
+        获取即时技术面交易信号API
+        
+        - 30分钟缓存策略
+        - 基于日线级别技术分析
+        - 返回具体买卖信号和操作建议
+        """
+        try:
+            print(f"处理技术面交易信号请求: {stock_code}")
+            
+            # 验证股票代码
+            if not stock_code or len(stock_code) != 6 or not stock_code.isdigit():
+                raise HTTPException(
+                    status_code=400,
+                    detail="股票代码必须是6位数字"
+                )
+            
+            # 检查缓存（除非强制刷新）
+            cached_result = None
+            if not request.force_refresh:
+                try:
+                    cached_result = await analysis_cache.get_trading_signal_cache(stock_code)
+                    if cached_result:
+                        print(f"返回技术面交易信号缓存: {stock_code}")
+                        return {
+                            "analysis_type": "daily_technical_trading",
+                            "stock_code": stock_code,
+                            **cached_result
+                        }
+                except Exception as e:
+                    print(f"缓存查询失败: {e}")
+            
+            # 检查AI Agent是否可用
+            if not technical_agent:
+                raise HTTPException(
+                    status_code=503,
+                    detail="技术面分析AI Agent未初始化，请检查ANTHROPIC_API_KEY配置"
+                )
+            
+            # 使用现有API接口获取数据，配置正确的base_url
+            stock_data_aggregator.base_url = "http://35.77.54.203:3003"
+            
+            # 收集技术面数据
+            print(f"收集技术面数据: {stock_code}")
+            technical_data = await stock_data_aggregator.collect_technical_data(stock_code)
+            
+            if not technical_data or technical_data.get("success_count", 0) == 0:
+                raise HTTPException(
+                    status_code=503,
+                    detail="无法获取技术分析所需的数据"
+                )
+            
+            # 格式化数据为AI可读格式
+            formatted_data = stock_data_aggregator.format_data_for_ai(technical_data)
+            
+            # 执行AI分析
+            print(f"执行技术面AI分析: {stock_code}")
+            ai_result = await technical_agent.analyze_trading_signal(formatted_data, stock_code)
+            
+            if not ai_result.get("success"):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"AI技术分析失败: {ai_result.get('error', 'Unknown error')}"
+                )
+            
+            # 构建响应
+            response_data = {
+                "analysis_type": "daily_technical_trading",
+                "stock_code": stock_code,
+                "cached": False,
+                "cache_expires_at": None,
+                "immediate_trading_signal": ai_result["analysis"].get("immediate_trading_signal", {}),
+                "technical_summary": ai_result["analysis"].get("technical_summary", {}),
+                "risk_warning": ai_result["analysis"].get("risk_warning", "请注意投资风险"),
+                "ai_analysis": ai_result["analysis"].get("raw_content", ""),
+                "data_completeness": technical_data.get("data_completeness", 0),
+                "api_usage": ai_result.get("api_usage", {}),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # 保存到缓存
+            try:
+                await analysis_cache.set_trading_signal_cache(stock_code, response_data)
+            except Exception as e:
+                print(f"缓存保存失败: {e}")
+            
+            print(f"技术面交易信号分析完成: {stock_code}")
+            return response_data
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"技术面交易信号处理异常 {stock_code}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"处理技术面交易信号时发生错误: {str(e)}"
+            )
+    
+    # 添加GET方法支持，重定向到POST
+    @app.get("/ai/comprehensive-evaluation/{stock_code}")
+    async def get_comprehensive_evaluation_redirect(stock_code: str):
+        """GET方法重定向，建议使用POST"""
+        return await get_comprehensive_evaluation(stock_code, ComprehensiveEvalRequest())
+    
+    @app.post("/ai/comprehensive-evaluation/{stock_code}")
+    async def get_comprehensive_evaluation(
+        stock_code: str,
+        request: ComprehensiveEvalRequest = ComprehensiveEvalRequest()
+    ):
+        """
+        获取综合股票评估报告API
+        
+        - 24小时缓存策略
+        - 多维度综合分析
+        - 返回完整的投资价值评估
+        """
+        try:
+            print(f"处理综合评估请求: {stock_code}")
+            
+            # 验证股票代码
+            if not stock_code or len(stock_code) != 6 or not stock_code.isdigit():
+                raise HTTPException(
+                    status_code=400,
+                    detail="股票代码必须是6位数字"
+                )
+            
+            # 检查缓存（除非强制刷新）
+            cached_result = None
+            if not request.force_refresh:
+                try:
+                    cached_result = await analysis_cache.get_comprehensive_cache(stock_code)
+                    if cached_result:
+                        print(f"返回综合评估缓存: {stock_code}")
+                        return {
+                            "analysis_type": "comprehensive_stock_evaluation",
+                            "stock_code": stock_code,
+                            **cached_result
+                        }
+                except Exception as e:
+                    print(f"缓存查询失败: {e}")
+            
+            # 检查AI Agent是否可用
+            if not comprehensive_agent:
+                raise HTTPException(
+                    status_code=503,
+                    detail="综合评估AI Agent未初始化，请检查ANTHROPIC_API_KEY配置"
+                )
+            
+            # 使用现有API接口获取数据
+            stock_data_aggregator.base_url = "http://35.77.54.203:3003"
+            
+            # 收集综合数据
+            print(f"收集综合数据: {stock_code}")
+            comprehensive_data = await stock_data_aggregator.collect_comprehensive_data(stock_code)
+            
+            if not comprehensive_data or comprehensive_data.get("success_count", 0) < 2:  # 降低要求，至少需要2个数据源
+                # 如果数据收集失败，尝试简化版本
+                print(f"数据收集失败，尝试基础数据收集: {stock_code}")
+                try:
+                    # 只收集核心数据和基本面分析
+                    basic_data = await stock_data_aggregator.collect_technical_data(stock_code)
+                    if basic_data and basic_data.get("success_count", 0) >= 1:
+                        comprehensive_data = {
+                            "stock_code": stock_code,
+                            "data_type": "simplified_evaluation",
+                            "collected_at": datetime.now().isoformat(),
+                            "data_sources": basic_data.get("data_sources", {}),
+                            "success_count": basic_data.get("success_count", 0),
+                            "data_completeness": basic_data.get("data_completeness", 0),
+                            "note": "使用简化数据进行评估"
+                        }
+                    else:
+                        raise HTTPException(
+                            status_code=503,
+                            detail=f"无法获取任何有效数据进行分析"
+                        )
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"数据收集完全失败: {str(e)}"
+                    )
+            
+            # 格式化数据为AI可读格式
+            formatted_data = stock_data_aggregator.format_data_for_ai(comprehensive_data)
+            
+            # 执行AI分析
+            print(f"执行综合评估AI分析: {stock_code}")
+            ai_result = await comprehensive_agent.analyze_comprehensive_evaluation(formatted_data, stock_code)
+            
+            if not ai_result.get("success"):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"AI综合评估失败: {ai_result.get('error', 'Unknown error')}"
+                )
+            
+            # 构建响应
+            response_data = {
+                "analysis_type": "comprehensive_stock_evaluation",
+                "stock_code": stock_code,
+                "cached": False,
+                "cache_expires_at": None,
+                "comprehensive_evaluation": ai_result["analysis"].get("comprehensive_evaluation", {}),
+                "evidence_and_reasoning": ai_result["analysis"].get("evidence_and_reasoning", {}),
+                "detailed_analysis": ai_result["analysis"].get("detailed_analysis", {}),
+                "sector_comparison": ai_result["analysis"].get("sector_comparison", {}),
+                "raw_data_sources": {
+                    "fundamental_data": comprehensive_data.get("data_sources", {}).get("fundamental_analysis", {}),
+                    "technical_data": comprehensive_data.get("data_sources", {}).get("technical_analysis", {}),
+                    "news_data": {
+                        "announcements": comprehensive_data.get("data_sources", {}).get("announcements", {}),
+                        "dragon_tiger": comprehensive_data.get("data_sources", {}).get("dragon_tiger", {})
+                    },
+                    "financial_history": comprehensive_data.get("data_sources", {}).get("financial_history", {})
+                },
+                "ai_analysis": ai_result["analysis"].get("raw_content", ""),
+                "data_completeness": comprehensive_data.get("data_completeness", 0),
+                "api_usage": ai_result.get("api_usage", {}),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # 保存到缓存
+            try:
+                await analysis_cache.set_comprehensive_cache(stock_code, response_data)
+            except Exception as e:
+                print(f"缓存保存失败: {e}")
+            
+            print(f"综合评估分析完成: {stock_code}")
+            return response_data
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"综合评估处理异常 {stock_code}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"处理综合评估时发生错误: {str(e)}"
+            )
+    
+    @app.get("/ai/health")
+    async def ai_health_check():
+        """AI功能健康检查"""
+        health_status = {
+            "service": "AI股票分析功能",
+            "timestamp": datetime.now().isoformat(),
+            "components": {}
+        }
+        
+        # 检查Redis缓存
+        try:
+            cache_health = await analysis_cache.health_check()
+            health_status["components"]["cache"] = cache_health
+        except Exception as e:
+            health_status["components"]["cache"] = {"status": "unhealthy", "error": str(e)}
+        
+        # 检查数据聚合器
+        try:
+            aggregator_health = await stock_data_aggregator.health_check()
+            health_status["components"]["data_aggregator"] = aggregator_health
+        except Exception as e:
+            health_status["components"]["data_aggregator"] = {"status": "unhealthy", "error": str(e)}
+        
+        # 检查AI Agents
+        health_status["components"]["ai_agents"] = {
+            "technical_agent": bool(technical_agent),
+            "comprehensive_agent": bool(comprehensive_agent),
+            "anthropic_api_key": bool(os.getenv('ANTHROPIC_API_KEY'))
+        }
+        
+        return health_status
+    
+    @app.get("/ai/cache/status/{stock_code}")
+    async def get_cache_status(stock_code: str):
+        """获取指定股票的缓存状态"""
+        try:
+            status = await analysis_cache.get_cache_status(stock_code)
+            return status
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.delete("/ai/cache/{stock_code}")
+    async def clear_cache(stock_code: str, cache_type: str = "all"):
+        """清除指定股票的缓存"""
+        try:
+            result = await analysis_cache.clear_cache(stock_code, cache_type)
+            return {
+                "success": result,
+                "stock_code": stock_code,
+                "cache_type": cache_type,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+except ImportError as e:
+    print(f"⚠️ AI分析功能导入失败: {e}")
+    print("AI分析功能将不可用，但基础API功能正常")
+    
+    @app.get("/ai/health")
+    async def ai_health_disabled():
+        """AI功能未启用"""
+        return {
+            "service": "AI股票分析功能",
+            "status": "disabled",
+            "reason": "AI分析模块导入失败",
+            "timestamp": datetime.now().isoformat()
+        }
 
 if __name__ == "__main__":
     import uvicorn
